@@ -6,7 +6,7 @@ import { signIn } from "next-auth/react";
 
 export default function Login() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState(""); // 👈 Теперь можно вводить email или username
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
@@ -16,7 +16,7 @@ export default function Login() {
     const res = await fetch("http://localhost:3000/api/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ identifier, password }), // 👈 Передаём identifier вместо email
     });
 
     const data = await res.json();
@@ -35,10 +35,10 @@ export default function Login() {
       {error && <p className="text-red-500">{error}</p>}
       <form onSubmit={handleSubmit} className="mt-4">
         <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          type="text"
+          placeholder="Email или @username" // 👈 Теперь поле универсальное
+          value={identifier}
+          onChange={(e) => setIdentifier(e.target.value)}
           className="block w-full p-2 border rounded mb-2"
           required
         />
@@ -50,19 +50,19 @@ export default function Login() {
           className="block w-full p-2 border rounded mb-2"
           required
         />
-        <button type="submit" className="bg-blue-600 text-white p-2 rounded">
+        <button type="submit" className="bg-blue-600 text-white p-2 rounded w-full">
           Войти
         </button>
 
         <button
-        onClick={() => signIn("google", { callbackUrl: "/posts" })}
-        className="bg-red-500 text-white p-2 rounded w-full my-2"
+          onClick={() => signIn("google", { callbackUrl: "/posts" })}
+          className="bg-red-500 text-white p-2 rounded w-full my-2"
         >
-            Войти через Google
+          Войти через Google
         </button>
 
-        <p className="mt-4">
-            Нет аккаунта? <a href="/register" className="text-blue-600">Зарегистрироваться</a>
+        <p className="mt-4 text-center">
+          Нет аккаунта? <a href="/register" className="text-blue-600">Зарегистрироваться</a>
         </p>
       </form>
     </div>
