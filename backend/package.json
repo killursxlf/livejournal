@@ -1,0 +1,13 @@
+{
+  "name": "backend",
+  "module": "index.ts",
+  "type": "module",
+  "devDependencies": {
+    "@prisma/client": "^6.3.0",
+    "@types/bun": "latest",
+    "prisma": "^6.3.0"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  }
+}
