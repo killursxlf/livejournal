@@ -52,8 +52,10 @@ export default function UserProfile() {
           </div>
         )}
         <div>
-          <h1 className="text-3xl font-bold">{user.username}</h1>
-          <p className="text-gray-600">{user.bio || "Нет описания"}</p>
+          {/* ✅ Теперь в `h1` отображается `name`, а `username` под ним маленьким шрифтом */}
+          <h1 className="text-3xl font-bold">{user.name || user.username}</h1>
+          <p className="text-sm text-gray-500">@{user.username}</p>
+          <p className="text-gray-600 mt-2">{user.bio || "Нет описания"}</p>
         </div>
       </div>
 

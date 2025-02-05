@@ -1,5 +1,6 @@
 import prisma from "../prisma";
 import { corsHeaders } from "../utils/cors";
+import jwt from "jsonwebtoken";
 
 export async function getUser(req: Request) {
     const url = new URL(req.url);
@@ -52,7 +53,37 @@ export async function getUser(req: Request) {
       });
     }
 }
-  
+
+export async function getCurrentUser(req: Request) {
+  try {
+    // Получаем заголовок с куками
+    const cookieHeader = req.headers.get("Cookie");
+    if (!cookieHeader) {
+      return new Response(JSON.stringify({ error: "Не авторизован" }), { status: 401 });
+    }
+
+    // Парсим куки и достаём токен
+    const cookies = Object.fromEntries(cookieHeader.split("; ").map(c => c.split("=")));
+    const token = cookies["token"];
+
+    if (!token) {
+      return new Response(JSON.stringify({ error: "Не авторизован" }), { status: 401 });
+    }
+
+    // Проверяем токен
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!);
+
+    return new Response(JSON.stringify(decoded), { status: 200 });
+  } catch (error) {
+    console.error("Ошибка получения пользователя:", error);
+
+    // Проверяем, является ли error экземпляром Error
+    const errorMessage = error instanceof Error ? error.message : "Ошибка сервера";
+
+    return new Response(JSON.stringify({ error: errorMessage }), { status: 401 });
+  }
+}
+
 
 export async function completeProfile(req: Request) {
   try {
@@ -101,11 +132,21 @@ export async function completeProfile(req: Request) {
 
 export async function updateProfile(req: Request) {
   try {
-    const { email, bio } = await req.json();
+    const { email, name, bio } = await req.json();
 
+    // Проверяем, переданы ли name и bio
+    const updateData: { name?: string; bio?: string } = {};
+    if (name !== undefined) updateData.name = name;
+    if (bio !== undefined) updateData.bio = bio;
+
+    if (!Object.keys(updateData).length) {
+      return new Response(JSON.stringify({ error: "Нет данных для обновления" }), { status: 400 });
+    }
+
+    // Обновляем пользователя в базе данных
     await prisma.user.update({
       where: { email },
-      data: { bio },
+      data: updateData,
     });
 
     return new Response(JSON.stringify({ message: "Профиль обновлён" }), {
@@ -223,3 +264,5 @@ export async function createPost(req: Request) {
       return new Response(JSON.stringify({ error: "Ошибка создания поста" }), { status: 500 });
     }
 }
+
+

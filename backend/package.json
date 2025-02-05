@@ -4,10 +4,16 @@
   "type": "module",
   "devDependencies": {
     "@prisma/client": "^6.3.0",
+    "@types/bcryptjs": "^2.4.6",
     "@types/bun": "latest",
+    "@types/jsonwebtoken": "^9.0.8",
     "prisma": "^6.3.0"
   },
   "peerDependencies": {
     "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.2"
   }
 }

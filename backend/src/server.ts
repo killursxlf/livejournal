@@ -1,5 +1,5 @@
 import { serve } from "bun";
-import { register, login } from "./routes/auth";
+import { register, login, logout, verifyToken, verifyUser } from "./routes/auth";
 import { createPost, getUser, completeProfile, updateProfile, uploadAvatar } from "./routes/user";
 import { corsHeaders } from "./utils/cors";
 import { readFile } from "fs/promises";
@@ -33,10 +33,23 @@ serve({
     }
 
     try {
+      // 🟢 Публичные маршруты (не требуют авторизации)
       if (url.pathname === "/api/register" && req.method === "POST") return register(req);
       if (url.pathname === "/api/login" && req.method === "POST") return login(req);
-      if (url.pathname === "/api/user" && req.method === "GET") return getUser(req);
+      if (url.pathname === "/api/logout" && req.method === "POST") return logout(req);
       if (url.pathname === "/api/complete-profile" && req.method === "POST") return completeProfile(req);
+      if (url.pathname === "/api/user/verify" && req.method === "POST") return verifyUser(req);
+
+      // 🔐 Защищённые маршруты (проверка JWT)
+      const user = await verifyToken(req);
+      if (!user) {
+        return new Response(JSON.stringify({ error: "Не авторизован" }), {
+          status: 401,
+          headers: corsHeaders(),
+        });
+      }
+
+      if (url.pathname === "/api/user" && req.method === "GET") return getUser(req);
       if (url.pathname === "/api/update-profile" && req.method === "POST") return updateProfile(req);
       if (url.pathname === "/api/upload-avatar" && req.method === "POST") return uploadAvatar(req);
       if (url.pathname === "/api/create-post" && req.method === "POST") return createPost(req);

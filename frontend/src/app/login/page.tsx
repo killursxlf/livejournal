@@ -1,42 +1,65 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSession, signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { signIn } from "next-auth/react";
 
 export default function Login() {
+  const { data: session } = useSession(); // Текущая сессия
   const router = useRouter();
-  const [identifier, setIdentifier] = useState(""); // 👈 Теперь можно вводить email или username
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
 
+  const [identifier, setIdentifier] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string>("");
+  const [loading, setLoading] = useState<boolean>(false);
+
+  console.log("session:", session );
+
+
+  //
+  // 2. Отправка формы
+  //
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
+    setLoading(true);
 
-    const res = await fetch("http://localhost:3000/api/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ identifier, password }), // 👈 Передаём identifier вместо email
+    // signIn - вызываем провайдера "credentials"
+    // ОБЯЗАТЕЛЬНО указываем redirect: false,
+    // чтобы NextAuth НЕ делал автоматический редирект
+    const result = await signIn("credentials", {
+      redirect: false,
+      identifier, // то, что ждет бэкенд
+      password,
     });
 
-    const data = await res.json();
+    setLoading(false);
 
-    if (res.ok) {
-      localStorage.setItem("token", data.token);
-      router.push("/posts");
-    } else {
-      setError(data.error || "Ошибка входа");
+    if (result?.error) {
+      // Если есть ошибка, показываем
+      setError(result.error || "Ошибка входа");
+      return;
     }
+
+    // Если ошибки нет, NextAuth обновит сессию в фоне → useSession() 
+    // → при появлении session.user.username сработает useEffect
+    console.log("Логин успешен, ждем обновления сессии...");
   };
 
+
+  //
+  // 3. Вёрстка формы
+  //
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-3xl font-bold">Вход</h1>
-      {error && <p className="text-red-500">{error}</p>}
+    <div className="container mx-auto p-6 max-w-md">
+      <h1 className="text-3xl font-bold text-center">Вход</h1>
+
+      {error && <p className="text-red-500 text-center mt-2">{error}</p>}
+
       <form onSubmit={handleSubmit} className="mt-4">
         <input
           type="text"
-          placeholder="Email или @username" // 👈 Теперь поле универсальное
+          placeholder="Email или @username"
           value={identifier}
           onChange={(e) => setIdentifier(e.target.value)}
           className="block w-full p-2 border rounded mb-2"
@@ -50,19 +73,30 @@ export default function Login() {
           className="block w-full p-2 border rounded mb-2"
           required
         />
-        <button type="submit" className="bg-blue-600 text-white p-2 rounded w-full">
-          Войти
-        </button>
 
         <button
-          onClick={() => signIn("google", { callbackUrl: "/profile" })}
+          type="submit"
+          className="bg-blue-600 text-white p-2 rounded w-full"
+          disabled={loading}
+        >
+          {loading ? "Входим..." : "Войти"}
+        </button>
+
+        {/* Google OAuth */}
+        <button
+          type="button"
+          onClick={() => signIn("google", { redirect: false })}
           className="bg-red-500 text-white p-2 rounded w-full my-2"
+          disabled={loading}
         >
           Войти через Google
         </button>
 
         <p className="mt-4 text-center">
-          Нет аккаунта? <a href="/register" className="text-blue-600">Зарегистрироваться</a>
+          Нет аккаунта?{" "}
+          <a href="/register" className="text-blue-600">
+            Зарегистрироваться
+          </a>
         </p>
       </form>
     </div>
