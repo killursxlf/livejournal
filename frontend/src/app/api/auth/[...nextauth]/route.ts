@@ -33,10 +33,10 @@ export const authOptions: NextAuthOptions = {
       return true;
     },
 
-    async redirect({ url, baseUrl }: { url: string; baseUrl: string }) {
-      return url.startsWith(baseUrl) ? url : baseUrl;
+    async redirect({ baseUrl }) {
+        return `${baseUrl}/profile`; 
     },
-
+  
     async session({ session }: { session: Session }) {
       if (session.user) { 
         const res = await fetch(`http://localhost:3000/api/user?email=${session.user.email}`);

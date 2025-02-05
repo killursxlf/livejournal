@@ -55,7 +55,7 @@ export default function Login() {
         </button>
 
         <button
-          onClick={() => signIn("google", { callbackUrl: "/posts" })}
+          onClick={() => signIn("google", { callbackUrl: "/profile" })}
           className="bg-red-500 text-white p-2 rounded w-full my-2"
         >
           Войти через Google

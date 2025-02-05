@@ -1,27 +1,54 @@
 import { serve } from "bun";
 import { register, login } from "./routes/auth";
-import { getUser, completeProfile } from "./routes/user";
-import { corsHeaders } from "./utils/cors"; 
+import { createPost, getUser, completeProfile, updateProfile, uploadAvatar } from "./routes/user";
+import { corsHeaders } from "./utils/cors";
+import { readFile } from "fs/promises";
+
 serve({
   port: 3000,
   async fetch(req) {
     const url = new URL(req.url);
 
-    // 📌 CORS для всех запросов
+    // ✅ Обрабатываем CORS перед любым другим запросом
     if (req.method === "OPTIONS") {
       return new Response(null, {
-        headers: corsHeaders(),
+        headers: {
+          ...corsHeaders(),
+          "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        },
       });
     }
 
-    if (url.pathname === "/api/register" && req.method === "POST")
-      return register(req);
-    if (url.pathname === "/api/login" && req.method === "POST") return login(req);
-    if (url.pathname === "/api/user" && req.method === "GET") return getUser(req);
-    if (url.pathname === "/api/complete-profile" && req.method === "POST")
-      return completeProfile(req);
+    // ✅ Статическая раздача изображений
+    if (url.pathname.startsWith("/uploads/")) {
+      try {
+        const filePath = `./public${url.pathname}`;
+        const file = await readFile(filePath);
+        return new Response(file, {
+          headers: { "Content-Type": "image/jpeg", ...corsHeaders() },
+        });
+      } catch (error) {
+        return new Response("Файл не найден", { status: 404, headers: corsHeaders() });
+      }
+    }
 
-    return new Response("Страница не найдена", { status: 404, headers: corsHeaders() });
+    try {
+      if (url.pathname === "/api/register" && req.method === "POST") return register(req);
+      if (url.pathname === "/api/login" && req.method === "POST") return login(req);
+      if (url.pathname === "/api/user" && req.method === "GET") return getUser(req);
+      if (url.pathname === "/api/complete-profile" && req.method === "POST") return completeProfile(req);
+      if (url.pathname === "/api/update-profile" && req.method === "POST") return updateProfile(req);
+      if (url.pathname === "/api/upload-avatar" && req.method === "POST") return uploadAvatar(req);
+      if (url.pathname === "/api/create-post" && req.method === "POST") return createPost(req);
+
+      return new Response("Страница не найдена", { status: 404, headers: corsHeaders() });
+    } catch (error) {
+      console.error("Ошибка на сервере:", error);
+      return new Response(JSON.stringify({ error: "Ошибка сервера" }), {
+        status: 500,
+        headers: corsHeaders(),
+      });
+    }
   },
 });
 
