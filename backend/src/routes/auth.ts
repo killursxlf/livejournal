@@ -186,3 +186,41 @@ export async function verifyUser(req: Request) {
     });
   }
 }
+
+export async function checkGoogleUser(req: Request) {
+  try {
+    const { email, name } = await req.json();
+
+    // Проверяем, есть ли пользователь с таким email
+    const existingUser = await prisma.user.findUnique({ where: { email } });
+
+    if (existingUser) {
+      // Юзер уже есть
+      return new Response(JSON.stringify({ found: true }), {
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    // Если нет, создаём новую запись. Пароль можно оставить пустым, 
+    // или делать дополнительную логику
+    const newUser = await prisma.user.create({
+      data: {
+        email,
+        name,
+        username: "",      
+        password: "", 
+      },
+    });
+
+    // Возвращаем found: false -> чтобы NextAuth сделал редирект на /complite-profile
+    return new Response(JSON.stringify({ found: false, userId: newUser.id }), {
+      headers: { "Content-Type": "application/json" },
+    });
+  } catch (err) {
+    console.error("Ошибка при checkGoogleUser:", err);
+    return new Response(JSON.stringify({ error: "Ошибка сервера" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+}

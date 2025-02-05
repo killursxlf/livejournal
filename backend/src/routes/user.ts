@@ -1,5 +1,6 @@
 import prisma from "../prisma";
 import { corsHeaders } from "../utils/cors";
+import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
 export async function getUser(req: Request) {
@@ -96,30 +97,53 @@ export async function completeProfile(req: Request) {
       });
     }
 
+    // Проверяем, что username не занят
     const existingUser = await prisma.user.findUnique({ where: { username } });
     if (existingUser) {
-      return new Response(JSON.stringify({ error: "Этот @username уже занят" }), {
-        status: 400,
-        headers: corsHeaders(),
-      });
+      return new Response(
+        JSON.stringify({ error: "Этот @username уже занят" }),
+        {
+          status: 400,
+          headers: corsHeaders(),
+        }
+      );
     }
 
+    // Ищем пользователя по email
     let user = await prisma.user.findUnique({ where: { email } });
 
+    // Хешируем пароль
+    const hashedPassword = await bcrypt.hash(password, 10);
+
     if (user) {
+      // Обновляем существующего пользователя
       user = await prisma.user.update({
         where: { email },
-        data: { name, username, password },
+        data: {
+          name,
+          username,
+          password: hashedPassword, // <-- сохраняем хеш
+        },
       });
     } else {
+      // Создаём нового пользователя
       user = await prisma.user.create({
-        data: { email, name, username, password },
+        data: {
+          email,
+          name,
+          username,
+          password: hashedPassword, // <-- сохраняем хеш
+        },
       });
     }
 
-    return new Response(JSON.stringify({ message: "Регистрация завершена", user }), {
-      headers: corsHeaders(),
-    });
+    return new Response(
+      JSON.stringify({ message: "Регистрация завершена", user }),
+      {
+        headers: corsHeaders(),
+      }
+    );
+  
   } catch (error) {
     console.error("Ошибка завершения регистрации:", error);
     return new Response(JSON.stringify({ error: "Ошибка завершения регистрации" }), {
@@ -134,7 +158,6 @@ export async function updateProfile(req: Request) {
   try {
     const { email, name, bio } = await req.json();
 
-    // Проверяем, переданы ли name и bio
     const updateData: { name?: string; bio?: string } = {};
     if (name !== undefined) updateData.name = name;
     if (bio !== undefined) updateData.bio = bio;
@@ -143,7 +166,6 @@ export async function updateProfile(req: Request) {
       return new Response(JSON.stringify({ error: "Нет данных для обновления" }), { status: 400 });
     }
 
-    // Обновляем пользователя в базе данных
     await prisma.user.update({
       where: { email },
       data: updateData,
@@ -178,15 +200,12 @@ export async function uploadAvatar(req: Request) {
         });
       }
   
-      // ✅ Генерируем уникальное имя файла
       const fileExtension = file.name.split(".").pop();
       const fileName = `avatar_${Date.now()}.${fileExtension}`;
       const filePath = `/uploads/${fileName}`;
   
-      // ✅ Сохраняем файл в `public/uploads/`, откуда сервер его раздаёт
       await Bun.write(`./public${filePath}`, file);
   
-      // ✅ Обновляем ссылку на аватар в БД
       await prisma.user.update({
         where: { email },
         data: { avatar: `http://localhost:3000${filePath}` }, // ✅ Полный URL файла

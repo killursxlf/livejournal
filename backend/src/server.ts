@@ -1,5 +1,5 @@
 import { serve } from "bun";
-import { register, login, logout, verifyToken, verifyUser } from "./routes/auth";
+import { register, login, logout, verifyToken, verifyUser, checkGoogleUser  } from "./routes/auth";
 import { createPost, getUser, completeProfile, updateProfile, uploadAvatar } from "./routes/user";
 import { corsHeaders } from "./utils/cors";
 import { readFile } from "fs/promises";
@@ -39,6 +39,7 @@ serve({
       if (url.pathname === "/api/logout" && req.method === "POST") return logout(req);
       if (url.pathname === "/api/complete-profile" && req.method === "POST") return completeProfile(req);
       if (url.pathname === "/api/user/verify" && req.method === "POST") return verifyUser(req);
+      if (url.pathname === "/api/oauth/google/check" && req.method === "POST") return checkGoogleUser(req);
 
       // 🔐 Защищённые маршруты (проверка JWT)
       const user = await verifyToken(req);
