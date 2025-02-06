@@ -1,14 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 
 export default function UserProfile() {
   const { username } = useParams();
   const { data: session } = useSession();
-  const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [isOwner, setIsOwner] = useState(false);
   const [error, setError] = useState("");
@@ -27,7 +26,7 @@ export default function UserProfile() {
             if (data.avatar && !data.avatar.startsWith("http")) {
               data.avatar = `http://localhost:3000${data.avatar}`;
             }
-
+            // Add a function for publish post, 
             setUser(data);
             if (session?.user?.email === data.email) {
               setIsOwner(true);
@@ -58,7 +57,6 @@ export default function UserProfile() {
           <p className="text-gray-600 mt-2">{user.bio || "Нет описания"}</p>
         </div>
       </div>
-
       {isOwner && (
         <div className="mt-4">
           <Link href={`/profile/${username}/edit`}>
