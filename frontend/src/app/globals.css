@@ -2,20 +2,53 @@
 @tailwind components;
 @tailwind utilities;
 
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --color-background: #ffffff;
+  --color-foreground: #171717;
+  --color-primary: #3B82F6;
+  --color-accent: #F59E0B;  
+  --font-base: 'Inter', system-ui, sans-serif;
+  --transition-duration: 0.2s;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --color-background: #1f2937;
+    --color-foreground: #E5E7EB;
+    --color-primary: #60A5FA;
+    --color-accent: #FBBF24;
   }
 }
 
+
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  @apply antialiased;
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-base);
+  transition: background-color var(--transition-duration) ease-in-out, color var(--transition-duration) ease-in-out;
+}
+
+a {
+  color: var(--color-primary);
+  transition: color var(--transition-duration) ease-in-out;
+}
+
+a:hover {
+  color: var(--color-accent);
+}
+
+img {
+  @apply max-w-full rounded;
+}
+
+p {
+  @apply leading-relaxed;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  @apply font-bold;
+  margin-top: 0;
+  margin-bottom: 0.5rem;
 }

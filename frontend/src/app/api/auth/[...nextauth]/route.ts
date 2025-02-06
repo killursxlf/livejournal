@@ -3,6 +3,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import { cookies } from "next/headers";
 
+
 export const authOptions: NextAuthOptions = {
   debug: true,
   providers: [
@@ -17,8 +18,8 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Пароль", type: "password" },
       },
       async authorize(credentials) {
-        console.log("⏳ Авторизация через BACKEND...");
-
+        // 1. Отправляем запрос на бэкенд для логина по паролю
+        console.log("⏳ Авторизация через BACKEND (Credentials)...");
         const res = await fetch(`${process.env.BACKEND_URL}/api/login`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -31,19 +32,17 @@ export const authOptions: NextAuthOptions = {
         }
 
         const { token, user } = await res.json();
-
         if (!user || !token) {
-          throw new Error("Не удалось получить данные пользователя");
+          throw new Error("Не удалось получить данные пользователя (Credentials)");
         }
 
-        console.log("✅ Авторизация успешна, передаем user в NextAuth...");
-
-        // Возвращаем объект `user` — NextAuth сам выставит куку next-auth.session-token
+        console.log("✅ Авторизация (Credentials) успешна, возвращаем user...");
         return {
           id: user.id,
           email: user.email,
           name: user.name,
           username: user.username,
+          avatar: user.avatar,
           accessToken: token,
         };
       },
@@ -51,50 +50,77 @@ export const authOptions: NextAuthOptions = {
   ],
 
   callbacks: {
-    /**
-     * signIn – вызывается после успешной authorize, но до редиректа.
-     * Если вернуть строку, будет редирект. Если true/false – нет редиректа.
-     */
-    async signIn({ user }) {
-      if (!user) return false; // запрет входа
-      console.log("▶ [signIn callback]: user =", user);
-
-      // Возвращаем true – значит вход разрешен, но URL не возвращаем
-      // => NextAuth НЕ будет делать автоматический редирект
+    async signIn({ user, account, profile }) {
+      if (!user) return false;
+    
+      // Если вход через Google
+      if (account?.provider === "google") {
+        // 1. Запрашиваем Bun-сервер, проверяем наличие пользователя
+        const res = await fetch(`${process.env.BACKEND_URL}/api/oauth/google/check`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: user.email,
+            name: user.name, 
+          }),
+        });
+    
+        if (!res.ok) {
+          console.error("Ошибка при checkGoogleUser:", await res.text());
+          // Прерываем вход
+          return false;
+        }
+    
+        const data = await res.json();
+        if (!data.found) {
+  
+          return "/complete-profile?email=" + encodeURIComponent(user.email as string) + "&name=" + encodeURIComponent(user.name as string);
+        }
+        // Юзер найден -> просто разрешаем вход
+        return true;
+      }
+    
+      // Если вход не через Google, просто разрешаем
       return true;
     },
+    
 
+    // jwt – сохраняем данные из user в токен (JWT)
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
         token.email = user.email;
         token.username = user.username;
+        token.avatar = user.avatar;
         token.accessToken = user.accessToken;
       }
       return token;
     },
 
+    // session – переносим данные из токена в session
     async session({ session, token }) {
       session.user.id = token.id as string;
       session.user.email = token.email as string;
       session.user.username = token.username as string;
+      session.user.avatar = token.avatar as string;
       session.user.accessToken = token.accessToken as string;
       return session;
     },
   },
 
   secret: process.env.NEXTAUTH_SECRET,
+
   session: {
     strategy: "jwt",
   },
+
   pages: {
     signIn: "/login",
   },
+
   events: {
     async signOut() {
       console.log("⏳ Выход из системы, удаляем токен...");
-
-      // Пример очистки вашей отдельной куки (если используете)
       const cookieStore = await cookies();
       await cookieStore.set("token", "", {
         httpOnly: true,
@@ -102,7 +128,6 @@ export const authOptions: NextAuthOptions = {
         maxAge: 0,
         path: "/",
       });
-
       console.log("✅ Токен удален");
     },
   },
