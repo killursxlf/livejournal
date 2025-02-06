@@ -3,11 +3,6 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import { cookies } from "next/headers";
 
-/**
- * ВАЖНО: Вам нужно в .env 
- *   NEXTAUTH_SECRET=<random_string>
- *   BACKEND_URL=http://localhost:3000  (или ваш адрес)
- */
 
 export const authOptions: NextAuthOptions = {
   debug: true,
@@ -47,6 +42,7 @@ export const authOptions: NextAuthOptions = {
           email: user.email,
           name: user.name,
           username: user.username,
+          avatar: user.avatar,
           accessToken: token,
         };
       },
@@ -54,12 +50,6 @@ export const authOptions: NextAuthOptions = {
   ],
 
   callbacks: {
-    /**
-     * signIn – вызывается при ЛЮБОЙ авторизации (и Google, и Credentials).
-     * Здесь мы можем проверить user и решить, куда/как идти дальше.
-     * Если вернём строку, будет редирект на неё.
-     * Если вернём true/false, то либо разрешим вход, либо нет.
-     */
     async signIn({ user, account, profile }) {
       if (!user) return false;
     
@@ -101,6 +91,7 @@ export const authOptions: NextAuthOptions = {
         token.id = user.id;
         token.email = user.email;
         token.username = user.username;
+        token.avatar = user.avatar;
         token.accessToken = user.accessToken;
       }
       return token;
@@ -111,6 +102,7 @@ export const authOptions: NextAuthOptions = {
       session.user.id = token.id as string;
       session.user.email = token.email as string;
       session.user.username = token.username as string;
+      session.user.avatar = token.avatar as string;
       session.user.accessToken = token.accessToken as string;
       return session;
     },

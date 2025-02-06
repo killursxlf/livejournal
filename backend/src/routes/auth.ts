@@ -97,6 +97,7 @@ export async function login(req: Request) {
           id: user.id,
           email: user.email,
           username: user.username,
+          avatar: user.avatar,
           name: user.name,
         },
       }),

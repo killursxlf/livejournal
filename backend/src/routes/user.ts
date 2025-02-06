@@ -253,35 +253,59 @@ export async function getUserWithPosts(req: Request) {
 }
 
 export async function createPost(req: Request) {
-    try {
-      const { title, content, email } = await req.json();
-  
-      if (!title || !content || !email) {
-        return new Response(JSON.stringify({ error: "Все поля обязательны" }), {
-          status: 400,
-          headers: corsHeaders(),
-        });
-      }
-  
-      const user = await prisma.user.findUnique({ where: { email } });
-  
-      if (!user) {
-        return new Response(JSON.stringify({ error: "Пользователь не найден" }), {
-          status: 404,
-          headers: corsHeaders(),
-        });
-      }
-  
-      const post = await prisma.post.create({
-        data: { title, content, authorId: user.id },
-      });
-  
-      return new Response(JSON.stringify({ message: "Публикация создана", post }), {
+  try {
+    const { title, content, email, tags } = await req.json();
+
+    if (!title || !content || !email) {
+      return new Response(JSON.stringify({ error: "Все поля обязательны" }), {
+        status: 400,
         headers: corsHeaders(),
       });
-    } catch (error) {
-      return new Response(JSON.stringify({ error: "Ошибка создания поста" }), { status: 500 });
     }
+
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      return new Response(
+        JSON.stringify({ error: "Пользователь не найден" }),
+        { status: 404, headers: corsHeaders() }
+      );
+    }
+
+    const tagsData = (tags || []).map((tagName: string) => ({
+      tag: {
+        connectOrCreate: {
+          where: { name: tagName.toLowerCase() },
+          create: { name: tagName.toLowerCase() },
+        },
+      },
+    }));
+
+  
+    const post = await prisma.post.create({
+      data: {
+        title,
+        content,
+        authorId: user.id,
+        postTags: {
+          create: tagsData,
+        },
+      },
+      include: {
+        postTags: {
+          include: { tag: true },
+        },
+      },
+    });
+
+    return new Response(
+      JSON.stringify({ message: "Публикация создана", post }),
+      { headers: corsHeaders() }
+    );
+  } catch (error) {
+    console.error("Ошибка создания поста:", error);
+    return new Response(
+      JSON.stringify({ error: "Ошибка создания поста" }),
+      { status: 500 }
+    );
+  }
 }
-
-

@@ -3,8 +3,16 @@
 import { useSession, signIn, signOut } from "next-auth/react";
 import Link from "next/link";
 
+// Если у вас есть переменная окружения для URL бекенда, например, NEXT_PUBLIC_BACKEND_URL
+const backendURL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000";
+
 export default function Header() {
   const { data: session } = useSession();
+
+  let avatar = (session?.user as any)?.avatar || session?.user?.image;
+  if (avatar && avatar.startsWith("/")) {
+    avatar = `${backendURL}${avatar}`;
+  }
 
   return (
     <header className="bg-blue-600 text-white p-4 shadow-lg">
@@ -26,7 +34,6 @@ export default function Header() {
               </Link>
             </li>
 
-            {/* ✅ Если пользователь НЕ авторизован → показываем "Войти" */}
             {!session ? (
               <li>
                 <button
@@ -37,11 +44,10 @@ export default function Header() {
                 </button>
               </li>
             ) : (
-              // ✅ Если пользователь авторизован → показываем "Выйти" и аватар
               <li className="flex items-center space-x-3">
-                {session.user?.image && (
+                {avatar && (
                   <img
-                    src={session.user.image}
+                    src={avatar}
                     alt="Аватар"
                     className="w-8 h-8 rounded-full border"
                   />

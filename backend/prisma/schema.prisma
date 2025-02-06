@@ -25,9 +25,29 @@ model User {
 }
 
 model Post {
-  id        String  @id @default(uuid())
+  id        String   @id @default(uuid())
   title     String
-  content   String
+  content   String?
   authorId  String
-  author    User    @relation(fields: [authorId], references: [id])
+  author    User     @relation(fields: [authorId], references: [id])
+
+  postTags PostTag[]
+}
+
+model Tag {
+  id   String   @id @default(uuid())
+  name String   @unique
+
+  postTags PostTag[]
+}
+
+
+model PostTag {
+  postId String
+  tagId  String
+
+  post Post @relation(fields: [postId], references: [id])
+  tag  Tag  @relation(fields: [tagId], references: [id])
+
+  @@id([postId, tagId]) 
 }

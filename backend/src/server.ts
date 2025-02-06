@@ -3,6 +3,7 @@ import { register, login, logout, verifyToken, verifyUser, checkGoogleUser  } fr
 import { createPost, getUser, completeProfile, updateProfile, uploadAvatar } from "./routes/user";
 import { corsHeaders } from "./utils/cors";
 import { readFile } from "fs/promises";
+import { getAllPosts } from "./routes/posts";
 
 serve({
   port: 3000,
@@ -33,15 +34,14 @@ serve({
     }
 
     try {
-      // 🟢 Публичные маршруты (не требуют авторизации)
       if (url.pathname === "/api/register" && req.method === "POST") return register(req);
       if (url.pathname === "/api/login" && req.method === "POST") return login(req);
       if (url.pathname === "/api/logout" && req.method === "POST") return logout(req);
       if (url.pathname === "/api/complete-profile" && req.method === "POST") return completeProfile(req);
       if (url.pathname === "/api/user/verify" && req.method === "POST") return verifyUser(req);
       if (url.pathname === "/api/oauth/google/check" && req.method === "POST") return checkGoogleUser(req);
+      if (url.pathname === "/api/posts" && req.method === "GET") return getAllPosts(req);
 
-      // 🔐 Защищённые маршруты (проверка JWT)
       const user = await verifyToken(req);
       if (!user) {
         return new Response(JSON.stringify({ error: "Не авторизован" }), {
