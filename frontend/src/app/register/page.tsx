@@ -27,23 +27,27 @@ export default function Register() {
       const res = await fetch("http://localhost:3000/api/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include", // 👈 Теперь куки будут работать
-        body: JSON.stringify({ email, name: name || "", username, password }), // 👈 Отправляем username
+        credentials: "include",
+        body: JSON.stringify({ email, name: name || "", username, password }),
       });
-
+    
       const data = await res.json();
-
+    
       if (!res.ok) {
         throw new Error(data.error || "Ошибка регистрации");
       }
-
+    
       alert("Регистрация успешна!");
       router.push("/login");
-    } catch (err: any) {
-      setError(err.message || "Ошибка сети");
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message || "Ошибка сети");
+      } else {
+        setError("Неизвестная ошибка");
+      }
     } finally {
       setLoading(false);
-    }
+    }    
   };
 
   return (

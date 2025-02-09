@@ -1,35 +1,22 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
-import dynamic from "next/dynamic";
-import { EditorState, convertToRaw } from "draft-js";
-import draftToHtml from "draftjs-to-html";
-
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { UserRound, Mail } from "lucide-react";
 import { PostCard } from "@/components/PostCard";
-import { DateTime } from "next-auth/providers/kakao";
 
-const TextEditor = dynamic(() => import("@/components/TextEditor"), { ssr: false });
-
+// Типы данных для пользователя и поста
 interface UserProfileData {
   avatar?: string;
   name?: string;
   username?: string;
   bio?: string;
   email?: string;
-  location?: string;
-  website?: string;
-  stats?: {
-    posts?: number;
-    followers?: number;
-    following?: number;
-  };
   posts?: PostData[];
   error?: string;
 }
@@ -40,36 +27,29 @@ interface PostData {
   content: string;
   author: string;
   postTags?: { tag: { name: string } }[];
-  createdAt: DateTime;
+  createdAt: string; // либо Date, если вы производите преобразование
 }
 
 export default function UserProfile() {
   const { username } = useParams();
+  const router = useRouter();
   const { data: session } = useSession();
 
   const [user, setUser] = useState<UserProfileData | null>(null);
   const [isOwner, setIsOwner] = useState(false);
   const [error, setError] = useState("");
 
-  // Флаг, отслеживающий, смонтирован ли компонент
+  // Флаг монтированности
   const isMounted = useRef(true);
 
-  // Состояния для создания поста
-  const [showCreatePostForm, setShowCreatePostForm] = useState(false);
-  const [title, setTitle] = useState("");
-  const [content, setContent] = useState<EditorState>(EditorState.createEmpty());
-  const [tagsInput, setTagsInput] = useState("");
-  const [postError, setPostError] = useState("");
-  const [creatingPost, setCreatingPost] = useState(false);
-
   useEffect(() => {
-    isMounted.current = true; // Компонент смонтирован
+    isMounted.current = true;
     if (username) {
       const decodedUsername = decodeURIComponent(username as string);
       fetch(`http://localhost:3000/api/user?username=${decodedUsername}`)
         .then((res) => res.json())
         .then((data: UserProfileData) => {
-          if (!isMounted.current) return; // Если компонент размонтирован, ничего не делаем
+          if (!isMounted.current) return;
           if (data.error) {
             setError(data.error);
           } else {
@@ -87,66 +67,9 @@ export default function UserProfile() {
         });
     }
     return () => {
-      isMounted.current = false; // При размонтировании устанавливаем флаг в false
+      isMounted.current = false;
     };
   }, [username, session]);
-
-  const handleToggleCreatePostForm = () => {
-    setShowCreatePostForm((prev) => !prev);
-  };
-
-  const handleCreatePost = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setCreatingPost(true);
-    setPostError("");
-
-    if (!session?.user?.email) {
-      setPostError("Вы не авторизованы");
-      setCreatingPost(false);
-      return;
-    }
-
-    try {
-      const tagsArray = tagsInput
-        .split(",")
-        .map((t) => t.trim())
-        .filter((t) => t.length > 0);
-
-      const contentHtml = draftToHtml(convertToRaw(content.getCurrentContent()));
-
-      const res = await fetch("http://localhost:3000/api/create-post", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title,
-          content: contentHtml,
-          email: session.user.email,
-          tags: tagsArray,
-        }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        if (isMounted.current) setPostError(data.error || "Ошибка создания поста");
-      } else {
-        const newPost: PostData = data.post;
-        if (isMounted.current) {
-          setUser((prev) =>
-            prev ? { ...prev, posts: [newPost, ...(prev.posts || [])] } : prev
-          );
-          setTitle("");
-          setContent(EditorState.createEmpty());
-          setTagsInput("");
-          setShowCreatePostForm(false);
-        }
-      }
-    } catch {
-      if (isMounted.current) setPostError("Ошибка сети при создании поста");
-    } finally {
-      if (isMounted.current) setCreatingPost(false);
-    }
-  };
 
   if (error) return <p className="text-red-500">{error}</p>;
   if (!user) return <p>Загрузка...</p>;
@@ -200,49 +123,13 @@ export default function UserProfile() {
       <div className="flex items-center justify-between mt-6">
         <h2 className="text-2xl font-semibold">Публикации</h2>
         {isOwner && (
-          <Button onClick={handleToggleCreatePostForm}>Создать пост</Button>
+          <Button
+            onClick={() => router.push(`/profile/${username}/create-post`)}
+          >
+            Создать пост
+          </Button>
         )}
       </div>
-
-      {/* Форма создания поста */}
-      {isOwner && showCreatePostForm && (
-        <Card className="max-w-4xl mx-auto mt-4 bg-gray-800 shadow-lg">
-          <CardContent className="p-6">
-            <h2 className="text-xl font-semibold mb-2 text-white">Новый пост</h2>
-            {postError && <p className="text-red-500 mb-2">{postError}</p>}
-            <form onSubmit={handleCreatePost}>
-              <input
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Заголовок"
-                className="block w-full p-2 bg-gray-700 border border-gray-600 rounded mb-2 text-white placeholder-gray-400"
-                required
-              />
-              <TextEditor
-                editorState={content}
-                onEditorStateChange={setContent}
-                placeholder="Содержание..."
-                className="mb-2"
-              />
-              <input
-                type="text"
-                value={tagsInput}
-                onChange={(e) => setTagsInput(e.target.value)}
-                placeholder="Теги (через запятую)"
-                className="block w-full p-2 bg-gray-700 border border-gray-600 rounded mb-2 text-white placeholder-gray-400"
-              />
-              <Button
-                type="submit"
-                disabled={creatingPost}
-                className="bg-primary/10 text-white px-4 py-2 rounded hover:bg-green-700 transition"
-              >
-                {creatingPost ? "Опубликовываем..." : "Опубликовать пост"}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Секция публикаций */}
       {user.posts && user.posts.length > 0 ? (

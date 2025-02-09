@@ -99,19 +99,65 @@ h1, h2, h3, h4, h5, h6 {
 
 .rdw-editor-main {
   background-color: #1F2937 !important; 
-  color: #FFFFFF !important;
+  color: #FFFFFF !important;            
+  border: 1px solid #4B5563 !important; 
+  z-index: 1000 !important;
+  overflow: visible !important;
 }
+
 
 .rdw-editor-toolbar {
   background-color: #374151 !important; 
-  border-color: #4B5563 !important;     
+  border-color: #4B5563 !important;       
+  z-index: 1000 !important;
+  overflow: visible !important;
 }
+
+.rdw-option-wrapper {
+  background-color: #2A2A2A !important;  
+  color: #FFFFFF !important;
+  border: none !important;
+  z-index: 1000 !important;
+  overflow: visible !important;
+}
+
+
+.rdw-option-active,
+.rdw-dropdownoption-active {
+  background-color: #4B5563 !important;  
+  color: #FFFFFF !important;
+}
+
+
+.rdw-dropdown-wrapper {
+  background-color: #1F2937 !important;
+  border: 1px solid #4B5563 !important;
+  z-index: 9999 !important;  
+  overflow: visible !important;
+}
+
 
 .rdw-dropdownoption-default {
   background-color: #1F2937 !important;
   color: #FFFFFF !important;
+  z-index: 1000 !important;
+  overflow: visible !important;
 }
 
-.rdw-option-wrapper {
+
+.rdw-dropdownoption-hover {
+  background-color: #374151 !important;
   color: #FFFFFF !important;
 }
+
+
+.rdw-dropdown-optionwrapper {
+  z-index: 9999 !important;
+}
+
+
+.rdw-iconfont {
+  color: #FFFFFF !important;
+}
+
+
