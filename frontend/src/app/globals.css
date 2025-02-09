@@ -1,3 +1,4 @@
+@import "react-draft-wysiwyg/dist/react-draft-wysiwyg.css";
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -94,4 +95,23 @@ h1, h2, h3, h4, h5, h6 {
 
 .read-the-docs {
   color: #888;
+}
+
+.rdw-editor-main {
+  background-color: #1F2937 !important; 
+  color: #FFFFFF !important;
+}
+
+.rdw-editor-toolbar {
+  background-color: #374151 !important; 
+  border-color: #4B5563 !important;     
+}
+
+.rdw-dropdownoption-default {
+  background-color: #1F2937 !important;
+  color: #FFFFFF !important;
+}
+
+.rdw-option-wrapper {
+  color: #FFFFFF !important;
 }

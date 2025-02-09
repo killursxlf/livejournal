@@ -1,9 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
+import { EditorState, convertToRaw } from "draft-js";
+import draftToHtml from "draftjs-to-html";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,6 +14,8 @@ import { Button } from "@/components/ui/button";
 import { UserRound, Mail } from "lucide-react";
 import { PostCard } from "@/components/PostCard";
 import { DateTime } from "next-auth/providers/kakao";
+
+const TextEditor = dynamic(() => import("@/components/TextEditor"), { ssr: false });
 
 interface UserProfileData {
   avatar?: string;
@@ -46,24 +51,28 @@ export default function UserProfile() {
   const [isOwner, setIsOwner] = useState(false);
   const [error, setError] = useState("");
 
+  // Флаг, отслеживающий, смонтирован ли компонент
+  const isMounted = useRef(true);
+
   // Состояния для создания поста
   const [showCreatePostForm, setShowCreatePostForm] = useState(false);
   const [title, setTitle] = useState("");
-  const [content, setContent] = useState("");
+  const [content, setContent] = useState<EditorState>(EditorState.createEmpty());
   const [tagsInput, setTagsInput] = useState("");
   const [postError, setPostError] = useState("");
   const [creatingPost, setCreatingPost] = useState(false);
 
   useEffect(() => {
+    isMounted.current = true; // Компонент смонтирован
     if (username) {
       const decodedUsername = decodeURIComponent(username as string);
       fetch(`http://localhost:3000/api/user?username=${decodedUsername}`)
         .then((res) => res.json())
         .then((data: UserProfileData) => {
+          if (!isMounted.current) return; // Если компонент размонтирован, ничего не делаем
           if (data.error) {
             setError(data.error);
           } else {
-            // Если аватар относительный, добавляем базовый URL
             if (data.avatar && !data.avatar.startsWith("http")) {
               data.avatar = `http://localhost:3000${data.avatar}`;
             }
@@ -73,8 +82,13 @@ export default function UserProfile() {
             }
           }
         })
-        .catch(() => setError("Ошибка загрузки профиля"));
+        .catch(() => {
+          if (isMounted.current) setError("Ошибка загрузки профиля");
+        });
     }
+    return () => {
+      isMounted.current = false; // При размонтировании устанавливаем флаг в false
+    };
   }, [username, session]);
 
   const handleToggleCreatePostForm = () => {
@@ -98,12 +112,14 @@ export default function UserProfile() {
         .map((t) => t.trim())
         .filter((t) => t.length > 0);
 
+      const contentHtml = draftToHtml(convertToRaw(content.getCurrentContent()));
+
       const res = await fetch("http://localhost:3000/api/create-post", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title,
-          content,
+          content: contentHtml,
           email: session.user.email,
           tags: tagsArray,
         }),
@@ -112,21 +128,23 @@ export default function UserProfile() {
       const data = await res.json();
 
       if (!res.ok) {
-        setPostError(data.error || "Ошибка создания поста");
+        if (isMounted.current) setPostError(data.error || "Ошибка создания поста");
       } else {
         const newPost: PostData = data.post;
-        setUser((prev) =>
-          prev ? { ...prev, posts: [newPost, ...(prev.posts || [])] } : prev
-        );
-        setTitle("");
-        setContent("");
-        setTagsInput("");
-        setShowCreatePostForm(false);
+        if (isMounted.current) {
+          setUser((prev) =>
+            prev ? { ...prev, posts: [newPost, ...(prev.posts || [])] } : prev
+          );
+          setTitle("");
+          setContent(EditorState.createEmpty());
+          setTagsInput("");
+          setShowCreatePostForm(false);
+        }
       }
     } catch {
-      setPostError("Ошибка сети при создании поста");
+      if (isMounted.current) setPostError("Ошибка сети при создании поста");
     } finally {
-      setCreatingPost(false);
+      if (isMounted.current) setCreatingPost(false);
     }
   };
 
@@ -138,7 +156,6 @@ export default function UserProfile() {
       {/* Заголовок профиля */}
       <Card className="max-w-4xl mx-auto">
         <CardContent className="flex flex-col md:flex-row items-center gap-8">
-          {/* Аватарка – центрируем на малых экранах */}
           <div className="flex w-full md:w-auto justify-center">
             <Avatar className="w-24 h-24">
               {user.avatar ? (
@@ -150,10 +167,8 @@ export default function UserProfile() {
               )}
             </Avatar>
           </div>
-          {/* Информация о пользователе */}
           <div className="flex flex-col justify-between w-full">
             <div>
-              {/* Отступ сверху для выравнивания */}
               <h1 className="text-2xl font-bold mt-6">
                 {user.name || user.username}
               </h1>
@@ -168,7 +183,6 @@ export default function UserProfile() {
                 )}
               </div>
             </div>
-            {/* Кнопка "Редактировать профиль" внизу блока */}
             {isOwner && (
               <div className="mt-4">
                 <Link href={`/profile/${username}/edit`}>
@@ -182,17 +196,15 @@ export default function UserProfile() {
         </CardContent>
       </Card>
 
-      {/* Заголовок публикаций и кнопка "Создать пост" справа */}
+      {/* Заголовок публикаций и кнопка "Создать пост" */}
       <div className="flex items-center justify-between mt-6">
         <h2 className="text-2xl font-semibold">Публикации</h2>
         {isOwner && (
-          <Button onClick={handleToggleCreatePostForm}>
-            Создать пост
-          </Button>
+          <Button onClick={handleToggleCreatePostForm}>Создать пост</Button>
         )}
       </div>
 
-      {/* Форма создания поста (только для владельца) */}
+      {/* Форма создания поста */}
       {isOwner && showCreatePostForm && (
         <Card className="max-w-4xl mx-auto mt-4 bg-gray-800 shadow-lg">
           <CardContent className="p-6">
@@ -207,13 +219,11 @@ export default function UserProfile() {
                 className="block w-full p-2 bg-gray-700 border border-gray-600 rounded mb-2 text-white placeholder-gray-400"
                 required
               />
-              <textarea
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
+              <TextEditor
+                editorState={content}
+                onEditorStateChange={setContent}
                 placeholder="Содержание..."
-                className="block w-full p-2 bg-gray-700 border border-gray-600 rounded mb-2 text-white placeholder-gray-400"
-                rows={4}
-                required
+                className="mb-2"
               />
               <input
                 type="text"
@@ -233,7 +243,6 @@ export default function UserProfile() {
           </CardContent>
         </Card>
       )}
-
 
       {/* Секция публикаций */}
       {user.posts && user.posts.length > 0 ? (

@@ -5,11 +5,8 @@ import { BookOpen, Heart, MessageSquare } from "lucide-react";
 interface PostCardProps {
   id: string;
   title: string;
-  content?: string;
-  author: {
-    name: string;
-    avatar?: string;
-  };
+  content: string;
+  author: { name: string; avatar?: string };
   createdAt: Date;
   postTags: { tag: { name: string } }[];
 }
@@ -21,11 +18,6 @@ export const PostCard = ({
   createdAt,
   postTags,
 }: PostCardProps) => {
-  // Вычисляем анонс поста
-  const excerpt =
-    content && content.length > 100 ? content.substring(0, 100) + "..." : content || "";
-
-  // Форматирование даты (пример)
   const formattedDate = createdAt.toLocaleDateString();
 
   return (
@@ -59,11 +51,18 @@ export const PostCard = ({
         </div>
       </CardHeader>
       <CardContent>
-        <p className="text-muted-foreground">{excerpt}</p>
+        {/* Отображаем HTML-контент, позволяя браузеру распарсить теги */}
+        <div
+          className="text-muted-foreground"
+          dangerouslySetInnerHTML={{ __html: content }}
+        />
         {postTags && postTags.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-2">
             {postTags.map((pt, index) => (
-              <span key={index} className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">
+              <span
+                key={index}
+                className="text-xs bg-primary/10 text-primary px-2 py-1 rounded"
+              >
                 {pt.tag.name}
               </span>
             ))}
