@@ -1,57 +1,84 @@
 "use client";
 
+import { BookOpen, MessageSquare, PenLine, Star, Users } from "lucide-react";
+import { FeatureCard } from "@/components/FeatureCard";
+
+const features = [
+  {
+    icon: BookOpen,
+    title: "Создавайте дневники",
+    description:
+      "Делитесь своими мыслями и историями в персональном онлайн-дневнике",
+  },
+  {
+    icon: PenLine,
+    title: "Пишите статьи",
+    description:
+      "Публикуйте статьи на любые темы и делитесь своим опытом",
+  },
+  {
+    icon: MessageSquare,
+    title: "Общайтесь",
+    description:
+      "Обсуждайте записи и находите единомышленников",
+  },
+  {
+    icon: Star,
+    title: "Оценивайте",
+    description:
+      "Ставьте оценки и делитесь мнением о прочитанном",
+  },
+];
+
 export default function Home() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center p-4">
-      {/* Основной контейнер с контентом */}
-      <div className="max-w-3xl w-full text-center">
-        {/* Заголовок и описание */}
-        <header>
-          <h1 className="text-5xl font-extrabold text-gray-800">
+    <div className="min-h-screen bg-gradient-to-b from-background via-background/95 to-background/90">
+      <section className="container px-4 pt-24 pb-16 text-center animate-fade-in">
+        <div className="max-w-3xl mx-auto">
+          <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-6">
             Добро пожаловать в LiveJournal
           </h1>
-          <p className="mt-4 text-xl text-gray-600">
-            Ваш персональный блог и сообщество для обмена идеями, историями и вдохновением.
+          <p className="text-xl text-muted-foreground mb-8">
+            Ваша платформа для самовыражения, общения и обмена идеями
           </p>
-        </header>
-
-        {/* Кнопки входа/регистрации */}
-        <div className="mt-6 flex justify-center space-x-4">
-          <a
-            href="/login"
-            className="px-6 py-3 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
-          >
-            Войти
-          </a>
-          <a
-            href="/register"
-            className="px-6 py-3 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 transition"
-          >
-            Регистрация
-          </a>
+          <button className="px-8 py-3 bg-primary text-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors duration-300">
+            Начать писать
+          </button>
         </div>
+      </section>
 
-        {/* Дополнительная информация */}
-        <div className="mt-10 text-left text-gray-700">
-          <section>
-            <h2 className="text-3xl font-bold mb-2">О проекте</h2>
-            <p className="text-lg">
-              LiveJournal – уникальная платформа для создания личных блогов, где вы можете делиться своими историями, идеями и находить единомышленников. Здесь вас ждут простота, удобство и множество возможностей для самовыражения.
-            </p>
-          </section>
-
-          <section className="mt-8">
-            <h2 className="text-3xl font-bold mb-2">Особенности</h2>
-            <ul className="list-disc list-inside text-lg">
-              <li>Лёгкая авторизация через Google или логин и пароль.</li>
-              <li>Создание, редактирование и удаление публикаций.</li>
-              <li>Лента рекомендаций с постами пользователей в удобном формате.</li>
-              <li>Настройка профиля с добавлением тегов и тем.</li>
-              <li>Активное сообщество для обмена идеями и вдохновения.</li>
-            </ul>
-          </section>
+      <section className="container px-4 py-16">
+        <h2 className="text-3xl font-bold text-center text-foreground mb-12">
+          Возможности платформы
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {features.map((feature, index) => (
+            <FeatureCard
+              key={index}
+              icon={feature.icon}
+              title={feature.title}
+              description={feature.description}
+            />
+          ))}
         </div>
-      </div>
+      </section>
+
+      <section className="container px-4 py-16 text-center">
+        <div className="max-w-2xl mx-auto">
+          <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-6">
+            <Users className="w-8 h-8 text-primary" />
+          </div>
+          <h2 className="text-3xl font-bold text-foreground mb-4">
+            Присоединяйтесь к сообществу
+          </h2>
+          <p className="text-muted-foreground mb-8">
+            Тысячи авторов уже делятся своими историями. Станьте частью нашего сообщества!
+          </p>
+          <button className="px-6 py-2 bg-background text-primary border-2 border-primary rounded-lg font-medium hover:bg-primary hover:text-foreground transition-colors duration-300">
+            Узнать больше
+          </button>
+        </div>
+      </section>
     </div>
   );
 }

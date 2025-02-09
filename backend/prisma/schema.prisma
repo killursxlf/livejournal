@@ -32,6 +32,8 @@ model Post {
   author    User     @relation(fields: [authorId], references: [id])
 
   postTags PostTag[]
+
+  createdAt DateTime @default(now())
 }
 
 model Tag {
