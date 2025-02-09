@@ -3,7 +3,6 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import { cookies } from "next/headers";
 
-
 export const authOptions: NextAuthOptions = {
   debug: true,
   providers: [
@@ -18,7 +17,6 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Пароль", type: "password" },
       },
       async authorize(credentials) {
-        // 1. Отправляем запрос на бэкенд для логина по паролю
         console.log("⏳ Авторизация через BACKEND (Credentials)...");
         const res = await fetch(`${process.env.BACKEND_URL}/api/login`, {
           method: "POST",
@@ -50,42 +48,40 @@ export const authOptions: NextAuthOptions = {
   ],
 
   callbacks: {
-    async signIn({ user, account, profile }) {
+    async signIn({ user, account }) {
       if (!user) return false;
-    
-      // Если вход через Google
+
       if (account?.provider === "google") {
-        // 1. Запрашиваем Bun-сервер, проверяем наличие пользователя
         const res = await fetch(`${process.env.BACKEND_URL}/api/oauth/google/check`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             email: user.email,
-            name: user.name, 
+            name: user.name,
           }),
         });
-    
+
         if (!res.ok) {
           console.error("Ошибка при checkGoogleUser:", await res.text());
-          // Прерываем вход
           return false;
         }
-    
+
         const data = await res.json();
+
         if (!data.found) {
-  
           return "/complete-profile?email=" + encodeURIComponent(user.email as string) + "&name=" + encodeURIComponent(user.name as string);
         }
-        // Юзер найден -> просто разрешаем вход
+
+        // Обогащаем объект user данными из БД
+        user.id = data.user.id;
+        user.username = data.user.username;
+        user.avatar = data.user.avatar;
         return true;
       }
-    
-      // Если вход не через Google, просто разрешаем
+
       return true;
     },
-    
 
-    // jwt – сохраняем данные из user в токен (JWT)
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
@@ -97,7 +93,6 @@ export const authOptions: NextAuthOptions = {
       return token;
     },
 
-    // session – переносим данные из токена в session
     async session({ session, token }) {
       session.user.id = token.id as string;
       session.user.email = token.email as string;

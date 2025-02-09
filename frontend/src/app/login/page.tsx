@@ -1,12 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState} from "react";
 import { useSession, signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
 
 export default function Login() {
   const { data: session } = useSession(); // Текущая сессия
-  const router = useRouter();
 
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
@@ -16,9 +14,6 @@ export default function Login() {
   console.log("session:", session );
 
 
-  //
-  // 2. Отправка формы
-  //
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");

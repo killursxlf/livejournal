@@ -13,12 +13,9 @@ import {
 } from "./ui/navigation-menu";
 import { DefaultUser } from "next-auth";
 
-// Определяем тип для пользователя с дополнительным полем avatar
 interface CustomUser extends DefaultUser {
   avatar?: string;
   username?: string;
-  // Если у вас есть поле username, можно его добавить, например:
-  // username?: string;
 }
 
 const backendURL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000";
@@ -26,15 +23,12 @@ const backendURL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000
 const Header = () => {
   const { data: session } = useSession();
 
-  // Приводим тип пользователя к CustomUser
   const user = session?.user as CustomUser | null;
   let avatar = user?.avatar || user?.image;
   if (avatar && avatar.startsWith("/")) {
     avatar = `${backendURL}${avatar}`;
   }
 
-  // Формируем динамическую ссылку на профиль:
-  // Здесь используем user.name в качестве username. Если у вас есть отдельное поле username, замените его.
   const username = user?.username || "";
   const profileLink = session && username ? `/profile/${encodeURIComponent(username)}` : "/login";
 

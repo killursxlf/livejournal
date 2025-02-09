@@ -3,11 +3,17 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
+interface User {
+  email: string;
+  name?: string;
+  bio?: string;
+}
+
 export default function EditProfile() {
   const { username } = useParams();
   const router = useRouter();
-  const [user, setUser] = useState<any>(null);
-  const [name, setName] = useState(""); // ✅ Добавили name
+  const [user, setUser] = useState<User | null>(null);
+  const [name, setName] = useState(""); 
   const [bio, setBio] = useState("");
   const [avatar, setAvatar] = useState<File | null>(null);
   const [error, setError] = useState("");
@@ -21,7 +27,7 @@ export default function EditProfile() {
             setError(data.error);
           } else {
             setUser(data);
-            setName(data.name || ""); // ✅ Загружаем name из БД
+            setName(data.name || ""); 
             setBio(data.bio || "");
           }
         })
@@ -38,7 +44,7 @@ export default function EditProfile() {
     const res = await fetch("http://localhost:3000/api/update-profile", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: user.email, name, bio }), // ✅ Отправляем name
+      body: JSON.stringify({ email: user?.email, name, bio }), 
     });
 
     if (res.ok) {
@@ -55,7 +61,9 @@ export default function EditProfile() {
 
     const formData = new FormData();
     formData.append("avatar", avatar);
-    formData.append("email", user.email);
+    if (user) {
+      formData.append("email", user.email);
+    }
 
     const res = await fetch("http://localhost:3000/api/upload-avatar", {
       method: "POST",
@@ -85,7 +93,7 @@ export default function EditProfile() {
         value={name}
         onChange={(e) => setName(e.target.value)}
         className="w-full p-2 border rounded mb-2"
-        autoFocus // ✅ Автофокус на поле имени
+        autoFocus 
         required
       />
 

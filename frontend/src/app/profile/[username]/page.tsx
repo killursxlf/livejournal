@@ -1,30 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
-
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { UserRound, Mail } from "lucide-react";
 import { PostCard } from "@/components/PostCard";
-import { DateTime } from "next-auth/providers/kakao";
 
+// Типы данных для пользователя и поста
 interface UserProfileData {
   avatar?: string;
   name?: string;
   username?: string;
   bio?: string;
   email?: string;
-  location?: string;
-  website?: string;
-  stats?: {
-    posts?: number;
-    followers?: number;
-    following?: number;
-  };
   posts?: PostData[];
   error?: string;
 }
@@ -35,11 +27,12 @@ interface PostData {
   content: string;
   author: string;
   postTags?: { tag: { name: string } }[];
-  createdAt: DateTime;
+  createdAt: string; // либо Date, если вы производите преобразование
 }
 
 export default function UserProfile() {
   const { username } = useParams();
+  const router = useRouter();
   const { data: session } = useSession();
 <<<<<<< HEAD
   const [user, setUser] = useState<any>(null);
@@ -50,24 +43,20 @@ export default function UserProfile() {
   const [isOwner, setIsOwner] = useState(false);
   const [error, setError] = useState("");
 
-  // Состояния для создания поста
-  const [showCreatePostForm, setShowCreatePostForm] = useState(false);
-  const [title, setTitle] = useState("");
-  const [content, setContent] = useState("");
-  const [tagsInput, setTagsInput] = useState("");
-  const [postError, setPostError] = useState("");
-  const [creatingPost, setCreatingPost] = useState(false);
+  // Флаг монтированности
+  const isMounted = useRef(true);
 
   useEffect(() => {
+    isMounted.current = true;
     if (username) {
       const decodedUsername = decodeURIComponent(username as string);
       fetch(`http://localhost:3000/api/user?username=${decodedUsername}`)
         .then((res) => res.json())
         .then((data: UserProfileData) => {
+          if (!isMounted.current) return;
           if (data.error) {
             setError(data.error);
           } else {
-            // Если аватар относительный, добавляем базовый URL
             if (data.avatar && !data.avatar.startsWith("http")) {
               data.avatar = `http://localhost:3000${data.avatar}`;
             }
@@ -81,62 +70,14 @@ export default function UserProfile() {
             }
           }
         })
-        .catch(() => setError("Ошибка загрузки профиля"));
+        .catch(() => {
+          if (isMounted.current) setError("Ошибка загрузки профиля");
+        });
     }
+    return () => {
+      isMounted.current = false;
+    };
   }, [username, session]);
-
-  const handleToggleCreatePostForm = () => {
-    setShowCreatePostForm((prev) => !prev);
-  };
-
-  const handleCreatePost = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setCreatingPost(true);
-    setPostError("");
-
-    if (!session?.user?.email) {
-      setPostError("Вы не авторизованы");
-      setCreatingPost(false);
-      return;
-    }
-
-    try {
-      const tagsArray = tagsInput
-        .split(",")
-        .map((t) => t.trim())
-        .filter((t) => t.length > 0);
-
-      const res = await fetch("http://localhost:3000/api/create-post", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title,
-          content,
-          email: session.user.email,
-          tags: tagsArray,
-        }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setPostError(data.error || "Ошибка создания поста");
-      } else {
-        const newPost: PostData = data.post;
-        setUser((prev) =>
-          prev ? { ...prev, posts: [newPost, ...(prev.posts || [])] } : prev
-        );
-        setTitle("");
-        setContent("");
-        setTagsInput("");
-        setShowCreatePostForm(false);
-      }
-    } catch {
-      setPostError("Ошибка сети при создании поста");
-    } finally {
-      setCreatingPost(false);
-    }
-  };
 
   if (error) return <p className="text-red-500">{error}</p>;
   if (!user) return <p>Загрузка...</p>;
@@ -146,7 +87,6 @@ export default function UserProfile() {
       {/* Заголовок профиля */}
       <Card className="max-w-4xl mx-auto">
         <CardContent className="flex flex-col md:flex-row items-center gap-8">
-          {/* Аватарка – центрируем на малых экранах */}
           <div className="flex w-full md:w-auto justify-center">
             <Avatar className="w-24 h-24">
               {user.avatar ? (
@@ -158,10 +98,8 @@ export default function UserProfile() {
               )}
             </Avatar>
           </div>
-          {/* Информация о пользователе */}
           <div className="flex flex-col justify-between w-full">
             <div>
-              {/* Отступ сверху для выравнивания */}
               <h1 className="text-2xl font-bold mt-6">
                 {user.name || user.username}
               </h1>
@@ -176,7 +114,6 @@ export default function UserProfile() {
                 )}
               </div>
             </div>
-            {/* Кнопка "Редактировать профиль" внизу блока */}
             {isOwner && (
               <div className="mt-4">
                 <Link href={`/profile/${username}/edit`}>
@@ -190,11 +127,13 @@ export default function UserProfile() {
         </CardContent>
       </Card>
 
-      {/* Заголовок публикаций и кнопка "Создать пост" справа */}
+      {/* Заголовок публикаций и кнопка "Создать пост" */}
       <div className="flex items-center justify-between mt-6">
         <h2 className="text-2xl font-semibold">Публикации</h2>
         {isOwner && (
-          <Button onClick={handleToggleCreatePostForm}>
+          <Button
+            onClick={() => router.push(`/profile/${username}/create-post`)}
+          >
             Создать пост
           </Button>
         )}
@@ -258,6 +197,7 @@ export default function UserProfile() {
         </div>
 =======
 
+<<<<<<< HEAD
       {/* Форма создания поста (только для владельца) */}
       {isOwner && showCreatePostForm && (
         <Card className="max-w-4xl mx-auto mt-4 bg-gray-800 shadow-lg">
@@ -302,6 +242,8 @@ export default function UserProfile() {
       )}
 
 
+=======
+>>>>>>> 37b1c4fae0fdcb40a127e55b420b7691a37385ef
       {/* Секция публикаций */}
       {user.posts && user.posts.length > 0 ? (
         <div className="mt-4 space-y-4">
