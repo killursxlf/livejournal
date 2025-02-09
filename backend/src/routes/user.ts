@@ -33,7 +33,15 @@ export async function getUser(req: Request) {
       // ✅ Загружаем пользователя и его посты
       const user = await prisma.user.findUnique({
         where: whereCondition,
-        include: { posts: true }, // 👈 Добавляем загрузку постов
+        include: { 
+          posts: { 
+            include: { 
+              postTags: { 
+                include: { tag: true } 
+              } 
+            } 
+          } 
+        }, 
       });
   
       if (!user) {
