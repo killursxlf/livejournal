@@ -34,12 +34,8 @@ export default function UserProfile() {
   const { username } = useParams();
   const router = useRouter();
   const { data: session } = useSession();
-<<<<<<< HEAD
-  const [user, setUser] = useState<any>(null);
-=======
 
   const [user, setUser] = useState<UserProfileData | null>(null);
->>>>>>> b2f222c3cd0f67e052dcb0c734257ee92afe7f8f
   const [isOwner, setIsOwner] = useState(false);
   const [error, setError] = useState("");
 
@@ -60,10 +56,6 @@ export default function UserProfile() {
             if (data.avatar && !data.avatar.startsWith("http")) {
               data.avatar = `http://localhost:3000${data.avatar}`;
             }
-<<<<<<< HEAD
-            // Add a function for publish post, 
-=======
->>>>>>> b2f222c3cd0f67e052dcb0c734257ee92afe7f8f
             setUser(data);
             if (session?.user?.email === data.email) {
               setIsOwner(true);
@@ -138,112 +130,7 @@ export default function UserProfile() {
           </Button>
         )}
       </div>
-<<<<<<< HEAD
-      {isOwner && (
-        <div className="mt-4">
-          <Link href={`/profile/${username}/edit`}>
-            <button className="bg-blue-600 text-white px-4 py-2 rounded">
-              Edit Profile
-            </button>
-          </Link>
 
-          {/* Кнопка "Создать пост" */}
-          <button
-            onClick={handleToggleCreatePostForm}
-            className="ml-4 bg-green-600 text-white px-4 py-2 rounded"
-          >
-            Создать пост
-          </button>
-
-          {/* Если showCreatePostForm = true -> показываем форму */}
-          {showCreatePostForm && (
-            <div className="mt-6 bg-gray-100 p-4 rounded">
-              <h2 className="text-xl font-semibold mb-2">Новый пост</h2>
-              {postError && <p className="text-red-500 mb-2">{postError}</p>}
-              <form onSubmit={handleCreatePost}>
-                <input
-                  type="text"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Заголовок"
-                  className="block w-full p-2 border rounded mb-2"
-                  required
-                />
-                <textarea
-                  value={content}
-                  onChange={(e) => setContent(e.target.value)}
-                  placeholder="Содержание..."
-                  className="block w-full p-2 border rounded mb-2"
-                  rows={4}
-                  required
-                />
-                <input
-                  type="text"
-                  value={tagsInput}
-                  onChange={(e) => setTagsInput(e.target.value)}
-                  placeholder="Теги (через запятую)"
-                  className="block w-full p-2 border rounded mb-2"
-                />
-                <button
-                  type="submit"
-                  disabled={creatingPost}
-                  className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition"
-                >
-                  {creatingPost ? "Опубликовываем..." : "Опубликовать пост"}
-                </button>
-              </form>
-            </div>
-          )}
-        </div>
-=======
-
-<<<<<<< HEAD
-      {/* Форма создания поста (только для владельца) */}
-      {isOwner && showCreatePostForm && (
-        <Card className="max-w-4xl mx-auto mt-4 bg-gray-800 shadow-lg">
-          <CardContent className="p-6">
-            <h2 className="text-xl font-semibold mb-2 text-white">Новый пост</h2>
-            {postError && <p className="text-red-500 mb-2">{postError}</p>}
-            <form onSubmit={handleCreatePost}>
-              <input
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Заголовок"
-                className="block w-full p-2 bg-gray-700 border border-gray-600 rounded mb-2 text-white placeholder-gray-400"
-                required
-              />
-              <textarea
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                placeholder="Содержание..."
-                className="block w-full p-2 bg-gray-700 border border-gray-600 rounded mb-2 text-white placeholder-gray-400"
-                rows={4}
-                required
-              />
-              <input
-                type="text"
-                value={tagsInput}
-                onChange={(e) => setTagsInput(e.target.value)}
-                placeholder="Теги (через запятую)"
-                className="block w-full p-2 bg-gray-700 border border-gray-600 rounded mb-2 text-white placeholder-gray-400"
-              />
-              <Button
-                type="submit"
-                disabled={creatingPost}
-                className="bg-primary/10 text-white px-4 py-2 rounded hover:bg-green-700 transition"
-              >
-                {creatingPost ? "Опубликовываем..." : "Опубликовать пост"}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
->>>>>>> b2f222c3cd0f67e052dcb0c734257ee92afe7f8f
-      )}
-
-
-=======
->>>>>>> 37b1c4fae0fdcb40a127e55b420b7691a37385ef
       {/* Секция публикаций */}
       {user.posts && user.posts.length > 0 ? (
         <div className="mt-4 space-y-4">
