@@ -18,7 +18,7 @@ export const PostCard = ({
   createdAt,
   postTags,
 }: PostCardProps) => {
-  const formattedDate = createdAt.toLocaleDateString();
+  const formattedDate = new Date(createdAt).toLocaleDateString();
 
   return (
     <Card className="group hover:border-primary/50 transition-colors animate-fade-in">
