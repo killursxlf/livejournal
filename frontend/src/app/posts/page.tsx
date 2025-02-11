@@ -5,6 +5,7 @@ import { PostCard } from "@/components/PostCard";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Filter, TrendingUp, BookMarked, Rss } from "lucide-react";
+import { useSession } from "next-auth/react";
 
 interface PostTag {
   postId: string;
@@ -19,23 +20,30 @@ interface Post {
   id: string;
   title: string;
   content: string;
-  createdAt: string; 
+  createdAt: string;
   author: {
     username: string;
     name: string;
     avatar?: string;
   };
   postTags?: PostTag[];
+  likeCount: number;
+  isLiked: boolean;
+  commentCount: number;
 }
 
-
 export default function PostsPage() {
+  const { data: session } = useSession();
+  const userID = session?.user?.id ?? ""; // Извлекаем userId из сессии
   const [posts, setPosts] = useState<Post[]>([]);
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    fetch("http://localhost:3000/api/posts")
+    // Формируем URL для запроса с учетом наличия userID
+    const url = userID ? `/api/posts?userId=${userID}` : "/api/posts";
+
+    fetch(url)
       .then((res) => res.json())
       .then((data: Post[] | { error: string }) => {
         if (Array.isArray(data)) {
@@ -46,7 +54,7 @@ export default function PostsPage() {
       })
       .catch(() => setError("Ошибка при загрузке ленты"))
       .finally(() => setLoading(false));
-  }, []);
+  }, [userID]); // зависимость от userID
 
   if (loading) {
     return (
@@ -96,15 +104,18 @@ export default function PostsPage() {
             <div className="space-y-6">
               {posts.map((post) => (
                 <PostCard
-                key={post.id}
-                {...post}
-                createdAt={new Date(post.createdAt)}
-                postTags={
-                  post.postTags
-                    ? post.postTags.map((pt) => ({ tag: { name: pt.tag.name } }))
-                    : []
-                }
-              />              
+                  key={post.id}
+                  {...post}
+                  createdAt={new Date(post.createdAt)}
+                  postTags={
+                    post.postTags
+                      ? post.postTags.map((pt) => ({ tag: { name: pt.tag.name } }))
+                      : []
+                  }
+                  likeCount={post.likeCount}
+                  isLiked={post.isLiked}
+                  commentCount={post.commentCount}
+                />
               ))}
             </div>
           </div>
@@ -120,7 +131,7 @@ export default function PostsPage() {
                 </h3>
                 <ScrollArea className="h-[200px]">
                   <div className="flex flex-wrap gap-2">
-                  {Array.from(
+                    {Array.from(
                       new Set(
                         posts.flatMap((post: Post) =>
                           post.postTags ? post.postTags.map((pt: PostTag) => pt.tag.name) : []
@@ -130,7 +141,7 @@ export default function PostsPage() {
                       <Button key={tag} variant="secondary" size="sm" className="text-xs">
                         #{tag}
                       </Button>
-                  ))}
+                    ))}
                   </div>
                 </ScrollArea>
               </div>

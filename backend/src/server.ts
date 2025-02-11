@@ -4,6 +4,8 @@ import { createPost, getUser, completeProfile, updateProfile, uploadAvatar } fro
 import { corsHeaders } from "./utils/cors";
 import { readFile } from "fs/promises";
 import { getAllPosts } from "./routes/posts";
+import { toggleLike } from "./routes/like";
+import { addComment } from "./routes/comment";
 
 serve({
   port: 3000,
@@ -50,6 +52,8 @@ serve({
         });
       }
 
+      if (url.pathname === "/api/like" && req.method === "POST") return toggleLike(req);
+      if (url.pathname === "/api/comment" && req.method === "POST") return addComment(req)
       if (url.pathname === "/api/user" && req.method === "GET") return getUser(req);
       if (url.pathname === "/api/update-profile" && req.method === "POST") return updateProfile(req);
       if (url.pathname === "/api/upload-avatar" && req.method === "POST") return uploadAvatar(req);

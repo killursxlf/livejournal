@@ -1,6 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { BookOpen, Heart, MessageSquare } from "lucide-react";
+import { BookOpen, MessageSquare } from "lucide-react";
+import { LikeButton } from "@/components/LikeButton";
+import Link from "next/link";
 
 interface PostCardProps {
   id: string;
@@ -9,14 +11,21 @@ interface PostCardProps {
   author: { name: string; avatar?: string };
   createdAt: Date;
   postTags: { tag: { name: string } }[];
+  likeCount: number;
+  isLiked: boolean;
+  commentCount: number;
 }
 
 export const PostCard = ({
+  id,
   title,
   content,
   author,
   createdAt,
   postTags,
+  likeCount,
+  isLiked,
+  commentCount,
 }: PostCardProps) => {
   const formattedDate = new Date(createdAt).toLocaleDateString();
 
@@ -39,19 +48,23 @@ export const PostCard = ({
           </p>
         </div>
         <div className="flex items-center gap-4 text-muted-foreground">
-          <div className="flex items-center gap-1">
-            <Heart className="w-4 h-4" />
-            <span className="text-sm">24</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <MessageSquare className="w-4 h-4" />
-            <span className="text-sm">12</span>
-          </div>
+          {/* Кнопка лайка через компонент LikeButton */}
+          <LikeButton
+            postId={id}
+            initialLiked={isLiked}
+            initialCount={likeCount}
+          />
+          {/* Кнопка перехода на страницу поста для комментариев */}
+          <Link href={`/posts/${id}`}>
+            <button className="flex items-center gap-1">
+              <MessageSquare className="w-4 h-4" />
+              <span className="text-sm">{commentCount}</span>
+            </button>
+          </Link>
           <BookOpen className="w-5 h-5 group-hover:text-primary transition-colors" />
         </div>
       </CardHeader>
       <CardContent>
-        {/* Отображаем HTML-контент, позволяя браузеру распарсить теги */}
         <div
           className="text-muted-foreground"
           dangerouslySetInnerHTML={{ __html: content }}
