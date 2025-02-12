@@ -1,9 +1,22 @@
 import { serve } from "bun";
-import { register, login, logout, verifyToken, verifyUser, checkGoogleUser  } from "./routes/auth";
-import { createPost, getUser, completeProfile, updateProfile, uploadAvatar } from "./routes/user";
+import {
+  register,
+  login,
+  logout,
+  verifyToken,
+  verifyUser,
+  checkGoogleUser,
+} from "./routes/auth";
+import {
+  createPost,
+  getUser,
+  completeProfile,
+  updateProfile,
+  uploadAvatar,
+} from "./routes/user";
 import { corsHeaders } from "./utils/cors";
 import { readFile } from "fs/promises";
-import { getAllPosts } from "./routes/posts";
+import { getAllPosts, getPost } from "./routes/posts"; // Импортируем getPost
 import { toggleLike } from "./routes/like";
 import { addComment } from "./routes/comment";
 
@@ -43,6 +56,8 @@ serve({
       if (url.pathname === "/api/user/verify" && req.method === "POST") return verifyUser(req);
       if (url.pathname === "/api/oauth/google/check" && req.method === "POST") return checkGoogleUser(req);
       if (url.pathname === "/api/posts" && req.method === "GET") return getAllPosts(req);
+      if (url.pathname === "/api/getpost" && req.method === "GET") return getPost(req);
+  
 
       const user = await verifyToken(req);
       if (!user) {
@@ -53,7 +68,7 @@ serve({
       }
 
       if (url.pathname === "/api/like" && req.method === "POST") return toggleLike(req);
-      if (url.pathname === "/api/comment" && req.method === "POST") return addComment(req)
+      if (url.pathname === "/api/comment" && req.method === "POST") return addComment(req);
       if (url.pathname === "/api/user" && req.method === "GET") return getUser(req);
       if (url.pathname === "/api/update-profile" && req.method === "POST") return updateProfile(req);
       if (url.pathname === "/api/upload-avatar" && req.method === "POST") return uploadAvatar(req);

@@ -78,3 +78,4 @@ model Comment {
   post      Post     @relation(fields: [postId], references: [id])
   user      User     @relation(fields: [userId], references: [id])
 }
+
