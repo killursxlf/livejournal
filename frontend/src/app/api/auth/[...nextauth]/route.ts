@@ -18,7 +18,7 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         console.log("⏳ Авторизация через BACKEND (Credentials)...");
-        const res = await fetch(`${process.env.BACKEND_URL}/api/login`, {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/login`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(credentials),
@@ -52,7 +52,7 @@ export const authOptions: NextAuthOptions = {
       if (!user) return false;
 
       if (account?.provider === "google") {
-        const res = await fetch(`${process.env.BACKEND_URL}/api/oauth/google/check`, {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/oauth/google/check`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

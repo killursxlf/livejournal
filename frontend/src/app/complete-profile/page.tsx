@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
+const backendURL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000";
+
 export default function CompleteProfile() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -23,7 +25,7 @@ export default function CompleteProfile() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const res = await fetch("http://localhost:3000/api/complete-profile", {
+    const res = await fetch(`${backendURL}/api/complete-profile`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, name, username, password }),

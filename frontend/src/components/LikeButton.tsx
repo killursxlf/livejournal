@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { Heart } from "lucide-react";
 
 interface LikeButtonProps {
@@ -14,46 +14,46 @@ export function LikeButton({ postId, initialLiked, initialCount }: LikeButtonPro
   const [likeCount, setLikeCount] = useState(initialCount);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const handleLike = async () => {
+  const handleLike = useCallback(async () => {
     if (isProcessing) return;
+
+    // Оптимистичное обновление
+    setLiked((prev) => !prev);
+    setLikeCount((prev) => (liked ? Math.max(0, prev - 1) : prev + 1));
     setIsProcessing(true);
-  
+
     try {
       const res = await fetch("/api/like", {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ postId /*, userId если нужно */ }),
+        body: JSON.stringify({ postId }),
       });
       const data = await res.json();
-  
-      if (res.ok) {
-        // Если сервер вернул новые данные, используем их
-        if (typeof data.liked === "boolean" && typeof data.likeCount === "number") {
-          setLiked(data.liked);
-          setLikeCount(data.likeCount);
-        } else {
-          // Если сервер не вернул данные, переключаем состояние локально
-          if (!liked) {
-            setLiked(true);
-            setLikeCount(prev => prev + 1);
-          } else {
-            setLiked(false);
-            setLikeCount(prev => Math.max(0, prev - 1));
-          }
-        }
+
+      if (res.ok && typeof data.liked === "boolean" && typeof data.likeCount === "number") {
+        setLiked(data.liked);
+        setLikeCount(data.likeCount);
       }
     } catch (error) {
       console.error("Ошибка при обработке лайка:", error);
+      // Откатить изменения при ошибке
+      setLiked((prev) => !prev);
+      setLikeCount((prev) => (liked ? prev + 1 : Math.max(0, prev - 1)));
     } finally {
       setIsProcessing(false);
     }
-  };
-  
+  }, [postId, liked, isProcessing]);
+
   return (
-    <button onClick={handleLike} className="flex items-center gap-1" disabled={isProcessing}>
+    <button
+      onClick={handleLike}
+      className="flex items-center gap-1"
+      disabled={isProcessing}
+      aria-label={liked ? "Убрать лайк" : "Поставить лайк"}
+    >
       <Heart className={`w-5 h-5 ${liked ? "text-red-500" : "text-gray-500"}`} />
       <span className="text-sm">{likeCount}</span>
     </button>
   );
 }
- 

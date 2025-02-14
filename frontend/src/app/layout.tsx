@@ -4,14 +4,17 @@ import "./globals.css";
 import { SessionProvider } from "next-auth/react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { Toaster } from "@/components/ui/toaster";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ru">
       <body>
-        <SessionProvider> {/* 👈 Переносим внутрь body */}
+        <SessionProvider>
           <Header />
           <main>{children}</main>
+          {/* Подключаем контейнер для toast-уведомлений */}
+          <Toaster />
           <Footer />
         </SessionProvider>
       </body>

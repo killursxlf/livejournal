@@ -10,11 +10,12 @@ import { Button } from "@/components/ui/button";
 import { UserRound, Mail } from "lucide-react";
 import { PostCard } from "@/components/PostCard";
 
-// Типы данных для пользователя и поста
+// Обновлённые типы данных для профиля (данные берутся из getUserWithPosts)
 interface UserProfileData {
+  id: string;
+  username: string;
+  name: string;
   avatar?: string;
-  name?: string;
-  username?: string;
   bio?: string;
   email?: string;
   posts?: PostData[];
@@ -25,39 +26,94 @@ interface PostData {
   id: string;
   title: string;
   content: string;
-  author: string;
-  postTags?: { tag: { name: string } }[];
-  createdAt: string; // либо Date, если вы производите преобразование
+  createdAt: string;
+  author: {
+    username: string;
+    name: string;
+    avatar?: string;
+  };
+  postTags?: PostTag[];
+  likeCount: number;
+  isLiked: boolean;
+  commentCount: number;
+  comments?: CommentData[];
 }
+
+interface CommentData {
+  id: number;
+  content: string;
+  createdAt: string;
+  author: {
+    username: string;
+    name: string;
+    avatar?: string;
+  };
+}
+
+interface PostTag {
+  postId: string;
+  tagId: string;
+  tag: {
+    id: string;
+    name: string;
+  };
+}
+
+interface CurrentUser {
+  id: string;
+  name: string;
+  username: string;
+  avatar?: string;
+  token?: string;
+}
+
+const backendURL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000";
 
 export default function UserProfile() {
   const { username } = useParams();
   const router = useRouter();
   const { data: session } = useSession();
+  const userId = session?.user?.id;
+
+  const currentUser: CurrentUser | undefined = session?.user?.name
+    ? {
+        id: session.user.id,
+        username: session.user.username ?? "",
+        name: session.user.name,
+        avatar: session.user.image ?? undefined,
+        token: "",
+      }
+    : undefined;
 
   const [user, setUser] = useState<UserProfileData | null>(null);
   const [isOwner, setIsOwner] = useState(false);
   const [error, setError] = useState("");
 
-  // Флаг монтированности
+
   const isMounted = useRef(true);
 
   useEffect(() => {
     isMounted.current = true;
     if (username) {
       const decodedUsername = decodeURIComponent(username as string);
-      fetch(`http://localhost:3000/api/user?username=${decodedUsername}`)
+
+      fetch(
+        `${backendURL}/api/user?username=${decodedUsername}&userId=${userId}`,
+        { credentials: "include" }
+      )      
         .then((res) => res.json())
         .then((data: UserProfileData) => {
           if (!isMounted.current) return;
           if (data.error) {
             setError(data.error);
           } else {
+
             if (data.avatar && !data.avatar.startsWith("http")) {
-              data.avatar = `http://localhost:3000${data.avatar}`;
+              data.avatar = `${backendURL}${data.avatar}`;
             }
             setUser(data);
-            if (session?.user?.email === data.email) {
+
+            if (session?.user?.username === data.username) {
               setIsOwner(true);
             }
           }
@@ -69,7 +125,7 @@ export default function UserProfile() {
     return () => {
       isMounted.current = false;
     };
-  }, [username, session]);
+  }, [username, session, userId]);
 
   if (error) return <p className="text-red-500">{error}</p>;
   if (!user) return <p>Загрузка...</p>;
@@ -123,9 +179,7 @@ export default function UserProfile() {
       <div className="flex items-center justify-between mt-6">
         <h2 className="text-2xl font-semibold">Публикации</h2>
         {isOwner && (
-          <Button
-            onClick={() => router.push(`/profile/${username}/create-post`)}
-          >
+          <Button onClick={() => router.push(`/profile/${username}/create-post`)}>
             Создать пост
           </Button>
         )}
@@ -141,11 +195,28 @@ export default function UserProfile() {
               title={post.title}
               content={post.content}
               author={{
-                name: user.name || user.username || "Автор",
-                avatar: user.avatar || "",
+                name: post.author?.name ?? "Unknown",
+                avatar: post.author?.avatar,
               }}
               createdAt={new Date(post.createdAt)}
-              postTags={post.postTags || []}
+              postTags={
+                post.postTags
+                  ? post.postTags.map((pt) => ({ tag: { name: pt.tag.name } }))
+                  : []
+              }
+              likeCount={post.likeCount}
+              isLiked={post.isLiked}
+              commentCount={post.commentCount}
+              comments={
+                post.comments?.map((comment) => ({
+                  id: comment.id,
+                  content: comment.content,
+                  date: comment.createdAt,
+                  author: comment.author?.name ?? "Unknown",
+                  avatar: comment.author?.avatar,
+                })) ?? []
+              }
+              currentUser={currentUser}
             />
           ))}
         </div>

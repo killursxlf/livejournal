@@ -7,15 +7,10 @@ import Link from "next/link";
 import { EditorState, convertToRaw } from "draft-js";
 import draftToHtml from "draftjs-to-html";
 import { Editor } from "react-draft-wysiwyg";
-
-// Импорт стилей редактора (если не импортированы глобально)
 import "react-draft-wysiwyg/dist/react-draft-wysiwyg.css";
-
-// Импортируем UI-компоненты из вашего модуля
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
-// Встроенный компонент редактора (TextEditor) реализован здесь
 interface TextEditorProps {
   editorState: EditorState;
   onEditorStateChange: (editorState: EditorState) => void;
@@ -56,10 +51,7 @@ const TextEditor: React.FC<TextEditorProps> = ({
   };
 
   return (
-    <div
-      className={className}
-      style={{ position: "relative", overflow: "visible" }}
-    >
+    <div className={className} style={{ position: "relative", overflow: "visible" }}>
       <Editor
         editorState={editorState}
         onEditorStateChange={onEditorStateChange}
@@ -82,14 +74,7 @@ const TextEditor: React.FC<TextEditorProps> = ({
             "history",
           ],
           fontFamily: {
-            options: [
-              "Arial",
-              "Georgia",
-              "Impact",
-              "Tahoma",
-              "Times New Roman",
-              "Verdana",
-            ],
+            options: ["Arial", "Georgia", "Impact", "Tahoma", "Times New Roman", "Verdana"],
           },
           fontSize: {
             options: [8, 9, 10, 11, 12, 14, 16, 18, 24, 30, 36, 48, 60, 72, 96],
@@ -110,11 +95,9 @@ export default function CreatePostPage() {
   const router = useRouter();
   const { data: session } = useSession();
 
-  // Состояния формы создания поста
+  const backendURL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000";
   const [title, setTitle] = useState("");
-  const [content, setContent] = useState<EditorState>(
-    EditorState.createEmpty()
-  );
+  const [content, setContent] = useState<EditorState>(EditorState.createEmpty());
   const [tagsInput, setTagsInput] = useState("");
   const [postError, setPostError] = useState("");
   const [creatingPost, setCreatingPost] = useState(false);
@@ -137,12 +120,11 @@ export default function CreatePostPage() {
         .filter((t) => t.length > 0);
 
       // Преобразуем содержимое редактора в HTML
-      const contentHtml = draftToHtml(
-        convertToRaw(content.getCurrentContent())
-      );
+      const contentHtml = draftToHtml(convertToRaw(content.getCurrentContent()));
 
-      const res = await fetch("http://localhost:3000/api/create-post", {
+      const res = await fetch(`${backendURL}/api/create-post`, {
         method: "POST",
+        credentials: "include", // Передаём cookies
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title,

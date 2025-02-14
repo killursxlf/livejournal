@@ -1,22 +1,62 @@
 import prisma from "../prisma";
 import { corsHeaders } from "../utils/cors";
+import { verifyToken } from "./auth";
 
 export async function getAllPosts(req: Request): Promise<Response> {
   try {
     const url = new URL(req.url);
     const userId = url.searchParams.get("userId");
+    const tag = url.searchParams.get("tag"); // фильтр по тегу
+    const sortParam = url.searchParams.get("sort"); // сортировка: например, "popular" или "latest"
+
+    // Строим условие where
+    const whereClause: any = {};
+    if (tag) {
+      // Фильтруем посты, у которых в связи postTags есть тег с указанным именем
+      whereClause.postTags = {
+        some: {
+          tag: { name: tag },
+        },
+      };
+    }
+
+    // Строим условие сортировки orderBy
+    let orderByClause: any = {};
+    if (sortParam === "popular") {
+      // Сортировка по количеству лайков (используем возможность сортировки по _count)
+      orderByClause = {
+        likes: { _count: "desc" },
+      };
+    } else {
+      // По умолчанию – сортировка по дате создания (от новых к старым)
+      orderByClause = {
+        createdAt: "desc",
+      };
+    }
 
     const posts = await prisma.post.findMany({
+      where: whereClause,
+      orderBy: orderByClause,
       include: {
-        author: { select: { username: true, name: true, email: true, avatar: true } },
+        author: {
+          select: { username: true, name: true, email: true, avatar: true },
+        },
         postTags: { include: { tag: true } },
         likes: true,
-        comments: true,
+        comments: {
+          include: {
+            user: {
+              select: { username: true, name: true, avatar: true },
+            },
+          },
+        },
       },
     });
 
-    // При необходимости перемешиваем посты:
-    posts.sort(() => Math.random() - 0.5);
+    // Если параметр sort не указан, можно выполнить случайную сортировку (как вариант)
+    if (!sortParam) {
+      posts.sort(() => Math.random() - 0.5);
+    }
 
     const postsWithExtraFields = posts.map((post) => {
       const basePost = {
@@ -29,15 +69,29 @@ export async function getAllPosts(req: Request): Promise<Response> {
           name: post.author.name,
           avatar: post.author.avatar,
         },
-        postTags: post.postTags.map((pt: { tag: { name: string } }) => ({ tag: { name: pt.tag.name } })),
+        postTags: post.postTags.map((pt: { tag: { name: string } }) => ({
+          tag: { name: pt.tag.name },
+        })),
         likeCount: post.likes.length,
         commentCount: post.comments.length,
+        comments: post.comments.map((comment) => ({
+          id: comment.id,
+          content: comment.content,
+          createdAt: comment.createdAt,
+          author: {
+            username: comment.user.username,
+            name: comment.user.name,
+            avatar: comment.user.avatar,
+          },
+        })),
       };
 
       if (userId) {
         return {
           ...basePost,
-          isLiked: post.likes.some((like: { userId: string }) => like.userId === userId),
+          isLiked: post.likes.some(
+            (like: { userId: string }) => like.userId === userId
+          ),
         };
       }
       return basePost;
@@ -58,11 +112,11 @@ export async function getAllPosts(req: Request): Promise<Response> {
   }
 }
 
+
 export async function getPost(req: Request): Promise<Response> {
   try {
     const url = new URL(req.url);
     const postId = url.searchParams.get("id");
-    const userId = url.searchParams.get("userId");
 
     if (!postId) {
       return new Response(JSON.stringify({ error: "Missing post id" }), {
@@ -70,6 +124,11 @@ export async function getPost(req: Request): Promise<Response> {
         headers: { "Content-Type": "application/json", ...corsHeaders() },
       });
     }
+
+    // Используем вашу функцию verifyToken, которая уже использует parseCookies
+    const tokenData = await verifyToken(req);
+    // Приводим tokenData к any, чтобы безопасно извлечь id пользователя
+    const userId: string | null = (tokenData as any)?.user?.id || (tokenData as any)?.id || null;
 
     const post = await prisma.post.findUnique({
       where: { id: postId },
@@ -81,7 +140,7 @@ export async function getPost(req: Request): Promise<Response> {
         likes: true,
         comments: {
           include: {
-            user: { // здесь используется связь "user", а не "author"
+            user: {
               select: { username: true, name: true, avatar: true },
             },
           },
@@ -95,6 +154,9 @@ export async function getPost(req: Request): Promise<Response> {
         headers: { "Content-Type": "application/json", ...corsHeaders() },
       });
     }
+
+    // Если userId получен, проверяем наличие лайка
+    const isLiked = userId ? post.likes.some((like) => like.userId === userId) : false;
 
     const postWithExtraFields = {
       id: post.id,
@@ -119,7 +181,7 @@ export async function getPost(req: Request): Promise<Response> {
           avatar: comment.user.avatar,
         },
       })),
-      ...(userId ? { isLiked: post.likes.some((like) => like.userId === userId) } : {}),
+      isLiked,
     };
 
     return new Response(JSON.stringify(postWithExtraFields), {
@@ -133,4 +195,3 @@ export async function getPost(req: Request): Promise<Response> {
     });
   }
 }
-

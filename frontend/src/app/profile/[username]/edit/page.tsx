@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 interface User {
@@ -8,6 +8,8 @@ interface User {
   name?: string;
   bio?: string;
 }
+
+const backendURL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000";
 
 export default function EditProfile() {
   const { username } = useParams();
@@ -17,12 +19,18 @@ export default function EditProfile() {
   const [bio, setBio] = useState("");
   const [avatar, setAvatar] = useState<File | null>(null);
   const [error, setError] = useState("");
+  
+  const isMounted = useRef(true);
 
   useEffect(() => {
+    isMounted.current = true;
     if (username) {
-      fetch(`http://localhost:3000/api/user?username=${username}`)
+      fetch(`${backendURL}/api/user?username=${username}`, {
+        credentials: "include",
+      })
         .then((res) => res.json())
         .then((data) => {
+          if (!isMounted.current) return;
           if (data.error) {
             setError(data.error);
           } else {
@@ -33,6 +41,9 @@ export default function EditProfile() {
         })
         .catch(() => setError("Ошибка загрузки профиля"));
     }
+    return () => {
+      isMounted.current = false;
+    };
   }, [username]);
 
   const handleSave = async () => {
@@ -41,8 +52,9 @@ export default function EditProfile() {
       return;
     }
 
-    const res = await fetch("http://localhost:3000/api/update-profile", {
+    const res = await fetch(`${backendURL}/api/update-profile`, {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: user?.email, name, bio }), 
     });
@@ -65,8 +77,9 @@ export default function EditProfile() {
       formData.append("email", user.email);
     }
 
-    const res = await fetch("http://localhost:3000/api/upload-avatar", {
+    const res = await fetch(`${backendURL}/api/upload-avatar`, {
       method: "POST",
+      credentials: "include",
       body: formData,
     });
 

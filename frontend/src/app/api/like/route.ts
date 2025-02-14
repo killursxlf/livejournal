@@ -1,4 +1,3 @@
-// src/app/api/like/route.ts
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"; 
@@ -12,13 +11,20 @@ export async function POST(request: Request) {
 
   const body = await request.json();
   const { postId } = body;
-
+  const backendURL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000";
   const payload = { postId, userId };
 
+  // Получаем cookie из запроса и передаем её дальше
+  const cookie = request.headers.get("cookie");
+
   try {
-    const res = await fetch("http://localhost:3000/api/like", {
+    const res = await fetch(`${backendURL}/api/like`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        ...(cookie ? { Cookie: cookie } : {}),
+      },
       body: JSON.stringify(payload),
     });
     const data = await res.json();

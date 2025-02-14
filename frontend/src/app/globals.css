@@ -160,4 +160,11 @@ h1, h2, h3, h4, h5, h6 {
   color: #FFFFFF !important;
 }
 
+.clamped-text {
+  display: -webkit-box;
+  -webkit-line-clamp: 3; /* Количество строк, которые нужно показать */
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 

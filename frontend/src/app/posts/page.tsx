@@ -7,6 +7,17 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Filter, TrendingUp, BookMarked, Rss } from "lucide-react";
 import { useSession } from "next-auth/react";
 
+interface CommentData {
+  id: number;
+  content: string;
+  createdAt: string;
+  author: {
+    username: string;
+    name: string;
+    avatar?: string;
+  };
+}
+
 interface PostTag {
   postId: string;
   tagId: string;
@@ -30,18 +41,50 @@ interface Post {
   likeCount: number;
   isLiked: boolean;
   commentCount: number;
+  comments?: CommentData[];
 }
 
+interface CurrentUser {
+  id: string;
+  name: string;
+  username: string;
+  avatar?: string;
+  token?: string;
+}
+
+const backendURL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000";
+
 export default function PostsPage() {
-  const { data: session } = useSession();
-  const userID = session?.user?.id ?? ""; // Извлекаем userId из сессии
+  const { data: session, status } = useSession();
+  const userID = session?.user?.id ?? "";
+
+  const currentUser: CurrentUser | undefined = session?.user?.name
+    ? {
+        id: session.user.id,
+        username: session.user.username ?? "",
+        name: session.user.name,
+        avatar: session.user.image ?? undefined,
+        token: "",
+      }
+    : undefined;
+
   const [posts, setPosts] = useState<Post[]>([]);
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(true);
 
+  // Состояния для фильтрации и сортировки
+  const [selectedTag, setSelectedTag] = useState<string>("");
+  const [sort, setSort] = useState<"latest" | "popular">("latest");
+
   useEffect(() => {
-    // Формируем URL для запроса с учетом наличия userID
-    const url = userID ? `/api/posts?userId=${userID}` : "/api/posts";
+    if (status === "loading") return;
+
+    const params = new URLSearchParams();
+    if (userID !== "") params.append("userId", userID);
+    if (selectedTag) params.append("tag", selectedTag);
+    if (sort === "popular") params.append("sort", "popular");
+
+    const url = `${backendURL}/api/posts${params.toString() ? "?" + params.toString() : ""}`;
 
     fetch(url)
       .then((res) => res.json())
@@ -54,7 +97,7 @@ export default function PostsPage() {
       })
       .catch(() => setError("Ошибка при загрузке ленты"))
       .finally(() => setLoading(false));
-  }, [userID]); // зависимость от userID
+  }, [status, userID, selectedTag, sort]);
 
   if (loading) {
     return (
@@ -90,9 +133,14 @@ export default function PostsPage() {
               <Filter className="w-4 h-4" />
               Фильтры
             </Button>
-            <Button variant="outline" size="sm" className="gap-2">
+            <Button
+              variant={sort === "popular" ? "default" : "outline"}
+              size="sm"
+              className="gap-2"
+              onClick={() => setSort(sort === "popular" ? "latest" : "popular")}
+            >
               <TrendingUp className="w-4 h-4" />
-              Популярное
+              {sort === "popular" ? "Популярное" : "Последние"}
             </Button>
           </div>
         </div>
@@ -105,16 +153,34 @@ export default function PostsPage() {
               {posts.map((post) => (
                 <PostCard
                   key={post.id}
-                  {...post}
+                  id={post.id}
+                  title={post.title}
+                  content={post.content}
+                  author={{
+                    name: post.author.name,
+                    avatar: post.author.avatar,
+                  }}
                   createdAt={new Date(post.createdAt)}
                   postTags={
                     post.postTags
-                      ? post.postTags.map((pt) => ({ tag: { name: pt.tag.name } }))
+                      ? post.postTags.map((pt) => ({
+                          tag: { name: pt.tag.name },
+                        }))
                       : []
                   }
                   likeCount={post.likeCount}
                   isLiked={post.isLiked}
                   commentCount={post.commentCount}
+                  comments={
+                    post.comments?.map((comment) => ({
+                      id: comment.id,
+                      content: comment.content,
+                      date: comment.createdAt,
+                      author: comment.author.name,
+                      avatar: comment.author.avatar,
+                    })) ?? []
+                  }
+                  currentUser={currentUser}
                 />
               ))}
             </div>
@@ -138,10 +204,26 @@ export default function PostsPage() {
                         )
                       )
                     ).map((tag: string) => (
-                      <Button key={tag} variant="secondary" size="sm" className="text-xs">
+                      <Button
+                        key={tag}
+                        variant={selectedTag === tag ? "default" : "secondary"}
+                        size="sm"
+                        className="text-xs"
+                        onClick={() => setSelectedTag(tag)}
+                      >
                         #{tag}
                       </Button>
                     ))}
+                    {selectedTag && (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="text-xs"
+                        onClick={() => setSelectedTag("")}
+                      >
+                        Сбросить фильтр
+                      </Button>
+                    )}
                   </div>
                 </ScrollArea>
               </div>

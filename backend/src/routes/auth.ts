@@ -2,7 +2,7 @@ import prisma from "../prisma";
 import { corsHeaders } from "../utils/cors";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-
+import { getToken } from "next-auth/jwt";
 
 const JWT_SECRET = process.env.JWT_SECRET!;
 const JWT_EXPIRATION = "7d"; // Токен на 7 дней
@@ -116,38 +116,28 @@ export async function login(req: Request) {
 }
 
 
-// Проверка JWT токена (защищённый маршрут)
-export async function verifyToken(req: Request) {
-  try {
-    const authHeader = req.headers.get("Authorization");
-
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return new Response(JSON.stringify({ error: "Токен отсутствует" }), {
-        status: 401,
-        headers: corsHeaders(),
-      });
+function parseCookies(req: Request): { [key: string]: string } {
+  const cookieHeader = req.headers.get("cookie") || "";
+  return cookieHeader.split(";").reduce((acc, cookie) => {
+    const [key, ...v] = cookie.split("=");
+    if (key && v) {
+      acc[key.trim()] = v.join("=").trim();
     }
+    return acc;
+  }, {} as { [key: string]: string });
+}
 
-    const token = authHeader.split(" ")[1];
-
-    try {
-      const decoded = jwt.verify(token, JWT_SECRET);
-      return new Response(JSON.stringify({ user: decoded }), {
-        headers: corsHeaders(),
-      });
-    } catch (error) {
-      return new Response(JSON.stringify({ error: "Неверный или просроченный токен" }), {
-        status: 401,
-        headers: corsHeaders(),
-      });
-    }
-  } catch (error) {
-    console.error("Ошибка проверки токена:", error);
-    return new Response(JSON.stringify({ error: "Ошибка сервера" }), {
-      status: 500,
-      headers: corsHeaders(),
-    });
-  }
+export async function verifyToken(req: Request): Promise<any | null> {
+  // Извлекаем куки из заголовка
+  const cookies = parseCookies(req);
+  // Создаем объект, который имитирует NextRequest, содержащий поле cookies
+  const pseudoNextRequest = {
+    cookies,
+  };
+  
+  // Вызываем getToken, передавая созданный объект и секрет
+  const token = await getToken({ req: pseudoNextRequest as any, secret: process.env.NEXTAUTH_SECRET });
+  return token;
 }
 
 export async function logout(req: Request) {
