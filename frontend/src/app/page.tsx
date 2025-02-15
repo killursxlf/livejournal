@@ -12,7 +12,7 @@ const features = [
     icon: BookOpen,
     title: "Создавайте дневники",
     description:
-      "",
+      "Делитесь своими мыслями и историями в персональном онлайн-дневнике",
   },
   {
     icon: PenLine,

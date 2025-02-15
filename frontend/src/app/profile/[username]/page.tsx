@@ -27,8 +27,9 @@ interface UserProfileData {
   email?: string;
   createdAt: string;
   posts?: PostData[];
-  likedPosts?: PostData[]; // добавлено для постов, которые пользователь лайкнул
-  savedPosts?: PostData[]; // добавлено для постов, которые пользователь сохранил
+  likedPosts?: PostData[]; // посты, которые пользователь лайкнул
+  savedPosts?: PostData[]; // посты, которые пользователь сохранил
+  draftPosts?: PostData[]; // черновики
   followerCount?: number;
   followingCount?: number;
   isFollow: boolean;
@@ -40,6 +41,7 @@ interface PostData {
   title: string;
   content: string;
   createdAt: string;
+  status: string; // добавляем поле status
   author: {
     username: string;
     name: string;
@@ -191,15 +193,25 @@ export default function UserProfile() {
                           className="text-muted-foreground hover:text-primary"
                         >
                           <Settings className="w-4 h-4" />
-                          <span className="sr-only">
-                            Редактировать профиль
-                          </span>
+                          <span className="sr-only">Редактировать профиль</span>
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
+                      <DropdownMenuContent 
+                        align="end" 
+                        className="bg-background shadow-lg z-50" // задаем непрозрачный фон и высокий z-index
+                      >
                         <DropdownMenuItem asChild>
                           <Link href={`/profile/${username}/edit`}>
-                            <span>Редактировать профиль</span>
+                            <span className="text-foreground bg-background block px-2 py-1">
+                              Редактировать профиль
+                            </span>
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link href={`/profile/${username}/create-post`}>
+                            <span className="text-foreground bg-background block px-2 py-1">
+                              Создать пост
+                            </span>
                           </Link>
                         </DropdownMenuItem>
                       </DropdownMenuContent>
@@ -259,54 +271,106 @@ export default function UserProfile() {
         {/* Раздел с табами для публикаций */}
         <div className="max-w-4xl mx-auto">
           <Tabs defaultValue="posts" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-3 max-w-[400px]">
+            <TabsList className="grid w-full grid-cols-4 max-w-[600px]">
               <TabsTrigger value="posts">Записи</TabsTrigger>
               <TabsTrigger value="liked">Понравившиеся</TabsTrigger>
               <TabsTrigger value="bookmarks">Избранное</TabsTrigger>
+              {isOwner && <TabsTrigger value="drafts">Черновики</TabsTrigger>}
             </TabsList>
 
             <TabsContent value="posts" className="space-y-6">
-              {user.posts && user.posts.length > 0 ? (
+              {user.posts && user.posts.filter((post: PostData) => post.status !== "DRAFT").length > 0 ? (
                 <div className="space-y-4">
-                  {user.posts.map((post: PostData) => (
-                    <PostCard
-                      key={post.id}
-                      id={post.id}
-                      title={post.title}
-                      content={post.content}
-                      author={{
-                        name: post.author?.name ?? "Unknown",
-                        avatar: post.author?.avatar,
-                      }}
-                      createdAt={new Date(post.createdAt)}
-                      postTags={
-                        post.postTags
-                          ? post.postTags.map((pt) => ({
-                              tag: { name: pt.tag.name },
-                            }))
-                          : []
-                      }
-                      likeCount={post.likeCount}
-                      isLiked={post.isLiked}
-                      commentCount={post.commentCount}
-                      comments={
-                        post.comments?.map((comment) => ({
-                          id: comment.id,
-                          content: comment.content,
-                          date: comment.createdAt,
-                          author: comment.author?.name ?? "Unknown",
-                          avatar: comment.author?.avatar,
-                        })) ?? []
-                      }
-                      currentUser={currentUser}
-                      isSaved={post.isSaved}
-                    />
-                  ))}
+                  {user.posts
+                    .filter((post: PostData) => post.status !== "DRAFT")
+                    .map((post: PostData) => (
+                      <PostCard
+                        key={post.id}
+                        id={post.id}
+                        title={post.title}
+                        content={post.content}
+                        author={{
+                          name: post.author?.name ?? "Unknown",
+                          avatar: post.author?.avatar,
+                        }}
+                        createdAt={new Date(post.createdAt)}
+                        postTags={
+                          post.postTags
+                            ? post.postTags.map((pt) => ({
+                                tag: { name: pt.tag.name },
+                              }))
+                            : []
+                        }
+                        likeCount={post.likeCount}
+                        isLiked={post.isLiked}
+                        commentCount={post.commentCount}
+                        comments={
+                          post.comments?.map((comment) => ({
+                            id: comment.id,
+                            content: comment.content,
+                            date: comment.createdAt,
+                            author: comment.author?.name ?? "Unknown",
+                            avatar: comment.author?.avatar,
+                          })) ?? []
+                        }
+                        currentUser={currentUser}
+                        isSaved={post.isSaved}
+                      />
+                    ))}
                 </div>
               ) : (
                 <p className="text-gray-500 mt-4">Пока нет публикаций.</p>
               )}
             </TabsContent>
+
+            {isOwner && (
+              <TabsContent value="drafts" className="space-y-6">
+              {user.draftPosts && user.draftPosts.length > 0 ? (
+                <div className="space-y-4">
+                  {user.draftPosts.map((post: PostData) => (
+                    // Используем Link без вложенного <a>, если PostCard сам не рендерит <a>
+                    <Link key={post.id} href={`/edit-draft/${post.id}`} passHref legacyBehavior>
+                      <div className="cursor-pointer">
+                        <PostCard
+                          id={post.id}
+                          title={post.title}
+                          content={post.content}
+                          author={{
+                            name: post.author?.name ?? "Unknown",
+                            avatar: post.author?.avatar,
+                          }}
+                          createdAt={new Date(post.createdAt)}
+                          postTags={
+                            post.postTags
+                              ? post.postTags.map((pt) => ({
+                                  tag: { name: pt.tag.name },
+                                }))
+                              : []
+                          }
+                          likeCount={post.likeCount}
+                          isLiked={post.isLiked}
+                          commentCount={post.commentCount}
+                          comments={
+                            post.comments?.map((comment) => ({
+                              id: comment.id,
+                              content: comment.content,
+                              date: comment.createdAt,
+                              author: comment.author?.name ?? "Unknown",
+                              avatar: comment.author?.avatar,
+                            })) ?? []
+                          }
+                          currentUser={currentUser}
+                          isSaved={post.isSaved}
+                        />
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-gray-500 mt-4">Пока нет черновиков.</p>
+              )}
+            </TabsContent>    
+            )}
 
             <TabsContent value="liked" className="space-y-6">
               {user.likedPosts && user.likedPosts.length > 0 ? (
@@ -347,9 +411,7 @@ export default function UserProfile() {
                   ))}
                 </div>
               ) : (
-                <p className="text-gray-500 mt-4">
-                  Нет понравившихся записей.
-                </p>
+                <p className="text-gray-500 mt-4">Нет понравившихся записей.</p>
               )}
             </TabsContent>
 
@@ -392,9 +454,7 @@ export default function UserProfile() {
                   ))}
                 </div>
               ) : (
-                <p className="text-gray-500 mt-4">
-                  Нет избранных записей.
-                </p>
+                <p className="text-gray-500 mt-4">Нет избранных записей.</p>
               )}
             </TabsContent>
           </Tabs>

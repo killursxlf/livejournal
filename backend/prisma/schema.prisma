@@ -13,18 +13,19 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+
 model User {
-  id        String  @id @default(uuid())
-  email     String  @unique
+  id        String   @id @default(uuid())
+  email     String   @unique
   name      String?
-  username  String  @unique
-  password  String  @db.VarChar(255)
+  username  String   @unique
+  password  String   @db.VarChar(255)
   bio       String?  
   avatar    String?
   createdAt DateTime @default(now())
   posts     Post[]
-  likes    Like[]
-  comments Comment[]
+  likes     Like[]
+  comments  Comment[]
 
   following Follows[] @relation("following")
   followers Follows[] @relation("followers")
@@ -32,17 +33,21 @@ model User {
 }
 
 model Post {
-  id        String   @id @default(uuid())
+  id        String     @id @default(uuid())
   title     String
   content   String?
   authorId  String
-  author    User     @relation(fields: [authorId], references: [id])
+  author    User       @relation(fields: [authorId], references: [id])
+  status    PostStatus @default(DRAFT)
+  publicationType PublicationType  @default(ARTICLE)
+  postVersions    PostVersion[]
+  publishAt       DateTime?
 
-  postTags PostTag[]
-  likes      Like[]
-  comments   Comment[]
-  createdAt DateTime @default(now())
-  savedBy    SavedPost[]
+  postTags  PostTag[]
+  likes     Like[]
+  comments  Comment[]
+  createdAt DateTime   @default(now())
+  savedBy   SavedPost[]
 }
 
 model Tag {
@@ -103,4 +108,26 @@ model SavedPost {
   post   Post @relation(fields: [postId], references: [id])
 
   @@id([userId, postId])
+}
+
+model PostVersion {
+  id        String   @id @default(uuid())
+  postId    String
+  title     String
+  content   String?
+  editorId  String?             // если нужно хранить, кто редактировал
+  createdAt DateTime  @default(now())
+  
+  post      Post     @relation(fields: [postId], references: [id])
+}
+
+enum PostStatus {
+  DRAFT
+  PUBLISHED
+}
+
+enum PublicationType {
+  ARTICLE
+  NEWS
+  REVIEW
 }

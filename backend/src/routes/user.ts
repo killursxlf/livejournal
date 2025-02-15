@@ -6,38 +6,42 @@ import { verifyToken } from "./auth";
 import fs from "fs/promises";
 
 export async function getUser(req: Request): Promise<Response> {
-  const url = new URL(req.url);
-  const email = url.searchParams.get("email");
-  const username = url.searchParams.get("username");
-  const currentUserId = url.searchParams.get("userId");
-
-  if (!email && !username) {
-    return new Response(
-      JSON.stringify({ error: "Необходимо указать email или username" }),
-      {
-        status: 400,
-        headers: corsHeaders(),
-      }
-    );
-  }
-
-  const whereCondition = email
-    ? { email }
-    : username
-    ? { username: username as string }
-    : undefined;
-
-  if (!whereCondition) {
-    return new Response(
-      JSON.stringify({ error: "Некорректный запрос" }),
-      {
-        status: 400,
-        headers: corsHeaders(),
-      }
-    );
-  }
-
   try {
+    const url = new URL(req.url);
+    const email = url.searchParams.get("email");
+    const username = url.searchParams.get("username");
+    const currentUserIdFromQuery = url.searchParams.get("userId");
+
+    if (!email && !username) {
+      return new Response(
+        JSON.stringify({ error: "Необходимо указать email или username" }),
+        {
+          status: 400,
+          headers: corsHeaders(),
+        }
+      );
+    }
+
+    const whereCondition = email
+      ? { email }
+      : username
+      ? { username: username as string }
+      : undefined;
+
+    if (!whereCondition) {
+      return new Response(
+        JSON.stringify({ error: "Некорректный запрос" }),
+        {
+          status: 400,
+          headers: corsHeaders(),
+        }
+      );
+    }
+
+    // Проверяем токен из куки
+    const token = await verifyToken(req);
+    const currentUserId = token?.user?.id || currentUserIdFromQuery || null;
+
     // Загружаем пользователя с его постами и отношениями подписок
     const user = await prisma.user.findUnique({
       where: whereCondition,
@@ -53,7 +57,7 @@ export async function getUser(req: Request): Promise<Response> {
                 },
               },
             },
-            savedBy: true, // связь сохранённых постов
+            savedBy: true,
           },
         },
         followers: true,
@@ -71,7 +75,7 @@ export async function getUser(req: Request): Promise<Response> {
       );
     }
 
-    // Если передан currentUserId, вычисляем для профиля, подписан ли он на данного пользователя
+    // Если передан currentUserId, вычисляем, подписан ли он на данного пользователя
     const isFollow = currentUserId
       ? user.followers.some(
           (follow: { followerId: string }) => follow.followerId === currentUserId
@@ -80,15 +84,13 @@ export async function getUser(req: Request): Promise<Response> {
 
     // Функция для маппинга поста в нужный формат
     const mapPost = (post: any) => {
-      // Если у поста есть собственный автор (для понравившихся/сохранённых постов), используем его,
-      // иначе - это посты, созданные самим пользователем.
       const author = post.author || {
         username: user.username,
         name: user.name,
         avatar: user.avatar,
       };
 
-      const basePost = {
+      const basePost: any = {
         id: post.id,
         title: post.title,
         content: post.content,
@@ -124,15 +126,23 @@ export async function getUser(req: Request): Promise<Response> {
           isSaved: post.savedBy.some(
             (saved: { userId: string }) => saved.userId === currentUserId
           ),
+          // Если владелец делает запрос, добавляем статус
+          ...(currentUserId === user.id && { status: post.status }),
         };
       }
       return basePost;
     };
 
-    // Посты, созданные пользователем
-    const createdPosts = user.posts.map(mapPost);
 
-    // Получаем посты, которые пользователь лайкнул (могут быть не его собственными)
+    const createdPosts = user.posts
+      ? (currentUserId && currentUserId === user.id
+          ? user.posts
+          : user.posts.filter((post) => post.status !== "DRAFT")
+        ).map(mapPost)
+      : [];
+
+
+    // Получаем посты, которые пользователь лайкнул
     const likedPostsData = await prisma.post.findMany({
       where: {
         likes: {
@@ -147,15 +157,12 @@ export async function getUser(req: Request): Promise<Response> {
         likes: { select: { userId: true } },
         comments: {
           include: {
-            user: {
-              select: { username: true, name: true, avatar: true },
-            },
+            user: { select: { username: true, name: true, avatar: true } },
           },
         },
         savedBy: true,
       },
     });
-
     const likedPosts = likedPostsData.map(mapPost);
 
     // Получаем посты, которые пользователь сохранил
@@ -173,16 +180,36 @@ export async function getUser(req: Request): Promise<Response> {
         likes: { select: { userId: true } },
         comments: {
           include: {
-            user: {
-              select: { username: true, name: true, avatar: true },
-            },
+            user: { select: { username: true, name: true, avatar: true } },
           },
         },
         savedBy: true,
       },
     });
-
     const savedPosts = savedPostsData.map(mapPost);
+
+    // Если текущий пользователь совпадает с владельцем профиля, выбираем черновики (status: DRAFT)
+    let draftPosts: any[] = [];
+    if (currentUserId && currentUserId === user.id) {
+      const draftPostsData = await prisma.post.findMany({
+        where: {
+          authorId: user.id,
+          status: "DRAFT",
+        },
+        include: {
+          author: { select: { username: true, name: true, avatar: true } },
+          postTags: { include: { tag: true } },
+          likes: { select: { userId: true } },
+          comments: {
+            include: {
+              user: { select: { username: true, name: true, avatar: true } },
+            },
+          },
+          savedBy: true,
+        },
+      });
+      draftPosts = draftPostsData.map(mapPost);
+    }
 
     const result = {
       id: user.id,
@@ -191,13 +218,14 @@ export async function getUser(req: Request): Promise<Response> {
       name: user.name,
       bio: user.bio,
       avatar: user.avatar,
-      createdAt: user.createdAt, // Дата регистрации
+      createdAt: user.createdAt,
       followerCount: user.followers ? user.followers.length : 0,
       followingCount: user.following ? user.following.length : 0,
       isFollow,
       posts: createdPosts,
       likedPosts,
       savedPosts,
+      draftPosts,
     };
 
     return new Response(JSON.stringify(result), {
@@ -215,6 +243,7 @@ export async function getUser(req: Request): Promise<Response> {
     });
   }
 }
+
 
 export async function getCurrentUser(req: Request) {
   try {
@@ -532,79 +561,6 @@ export async function getUserWithPosts(req: Request): Promise<Response> {
     return new Response(JSON.stringify({ error: "Ошибка сервера" }), {
       status: 500,
       headers: { "Content-Type": "application/json", ...corsHeaders() },
-    });
-  }
-}
-
-
-export async function createPost(req: Request) {
-  try {
-    // Извлекаем данные токена
-    const tokenData = await verifyToken(req);
-    const tokenEmail = tokenData?.user?.email || tokenData?.email;
-    if (!tokenEmail) {
-      return new Response(JSON.stringify({ error: "Не авторизован" }), {
-        status: 401,
-        headers: corsHeaders(),
-      });
-    }
-
-    const { title, content, email, tags } = await req.json();
-
-    if (!title || !content || !email) {
-      return new Response(JSON.stringify({ error: "Все поля обязательны" }), {
-        status: 400,
-        headers: corsHeaders(),
-      });
-    }
-
-    // Проверяем, что email из запроса совпадает с email из токена
-    if (email !== tokenEmail) {
-      return new Response(JSON.stringify({ error: "Доступ запрещён" }), {
-        status: 403,
-        headers: corsHeaders(),
-      });
-    }
-
-    // Находим пользователя по email
-    const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) {
-      return new Response(JSON.stringify({ error: "Пользователь не найден" }), {
-        status: 404,
-        headers: corsHeaders(),
-      });
-    }
-
-    const tagsData = (tags || []).map((tagName: string) => ({
-      tag: {
-        connectOrCreate: {
-          where: { name: tagName.toLowerCase() },
-          create: { name: tagName.toLowerCase() },
-        },
-      },
-    }));
-
-    const post = await prisma.post.create({
-      data: {
-        title,
-        content,
-        authorId: user.id,
-        postTags: { create: tagsData },
-      },
-      include: {
-        postTags: { include: { tag: true } },
-      },
-    });
-
-    return new Response(
-      JSON.stringify({ message: "Публикация создана", post }),
-      { headers: corsHeaders() }
-    );
-  } catch (error) {
-    console.error("Ошибка создания поста:", error);
-    return new Response(JSON.stringify({ error: "Ошибка создания поста" }), {
-      status: 500,
-      headers: corsHeaders(),
     });
   }
 }
