@@ -2,24 +2,38 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Camera } from "lucide-react";
+
+const backendURL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000";
 
 interface User {
   email: string;
   name?: string;
   bio?: string;
+  username?: string;
+  avatar?: string;
+  error?: string;
 }
-
-const backendURL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000";
 
 export default function EditProfile() {
   const { username } = useParams();
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
-  const [name, setName] = useState(""); 
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [bio, setBio] = useState("");
+  const [newUsername, setNewUsername] = useState("");
   const [avatar, setAvatar] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string>("");
   const [error, setError] = useState("");
-  
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const isMounted = useRef(true);
 
   useEffect(() => {
@@ -29,14 +43,19 @@ export default function EditProfile() {
         credentials: "include",
       })
         .then((res) => res.json())
-        .then((data) => {
+        .then((data: User) => {
           if (!isMounted.current) return;
           if (data.error) {
             setError(data.error);
           } else {
             setUser(data);
-            setName(data.name || ""); 
+            if (data.name) {
+              const parts = data.name.split(" ");
+              setFirstName(parts[0]);
+              setLastName(parts.slice(1).join(" "));
+            }
             setBio(data.bio || "");
+            setNewUsername(data.username || "");
           }
         })
         .catch(() => setError("Ошибка загрузки профиля"));
@@ -46,50 +65,76 @@ export default function EditProfile() {
     };
   }, [username]);
 
-  const handleSave = async () => {
-    if (!name.trim()) {
-      setError("Имя не может быть пустым!");
-      return;
-    }
+  // Очистка временного URL аватарки при изменении или размонтировании
+  useEffect(() => {
+    return () => {
+      if (avatarPreview) {
+        URL.revokeObjectURL(avatarPreview);
+      }
+    };
+  }, [avatarPreview]);
 
-    const res = await fetch(`${backendURL}/api/update-profile`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: user?.email, name, bio }), 
-    });
-
-    if (res.ok) {
-      alert("✅ Профиль обновлён!");
-      router.push(`/profile/${username}`);
-    } else {
-      const data = await res.json();
-      setError(data.error || "Ошибка при обновлении профиля");
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setAvatar(file);
+      // Если уже был создан URL, освобождаем его
+      if (avatarPreview) {
+        URL.revokeObjectURL(avatarPreview);
+      }
+      const previewURL = URL.createObjectURL(file);
+      setAvatarPreview(previewURL);
     }
   };
 
-  const handleAvatarUpload = async () => {
-    if (!avatar) return;
+  const handleAvatarButtonClick = () => {
+    fileInputRef.current?.click();
+  };
 
-    const formData = new FormData();
-    formData.append("avatar", avatar);
-    if (user) {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!firstName.trim()) {
+      setError("Имя не может быть пустым!");
+      return;
+    }
+    if (!user) return;
+
+    // Объединяем firstName и lastName
+    const combinedName = `${firstName.trim()} ${lastName.trim()}`.trim();
+
+    let res;
+    if (avatar) {
+      const formData = new FormData();
+      formData.append("avatar", avatar);
       formData.append("email", user.email);
+      formData.append("name", combinedName);
+      formData.append("bio", bio);
+      formData.append("username", newUsername);
+      res = await fetch(`${backendURL}/api/update-profile`, {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+      });
+    } else {
+      res = await fetch(`${backendURL}/api/update-profile`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: user.email,
+          name: combinedName,
+          bio,
+          username: newUsername,
+        }),
+      });
     }
 
-    const res = await fetch(`${backendURL}/api/upload-avatar`, {
-      method: "POST",
-      credentials: "include",
-      body: formData,
-    });
-
-    const data = await res.json();
-
     if (res.ok) {
-      alert("✅ Аватар обновлён!");
-      router.push(`/profile/${username}`);
+      alert("✅ Профиль обновлён!");
+      router.push(`/profile/${newUsername}`);
     } else {
-      setError(data.error || "Ошибка при загрузке аватара");
+      const data = await res.json();
+      setError(data.error || "Ошибка при обновлении профиля");
     }
   };
 
@@ -97,39 +142,121 @@ export default function EditProfile() {
   if (!user) return <p>Загрузка...</p>;
 
   return (
-    <div className="container mx-auto p-6 max-w-lg">
-      <h1 className="text-3xl font-bold mb-4">Редактирование профиля</h1>
+    <div className="min-h-screen bg-background">
 
-      <label className="block font-medium">Имя:</label>
-      <input
-        type="text"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        className="w-full p-2 border rounded mb-2"
-        autoFocus 
-        required
-      />
+      <div className="container py-8">
+        <Card className="max-w-2xl mx-auto backdrop-blur-sm bg-black/20 border-white/5">
+          <CardHeader>
+            <CardTitle className="text-2xl font-bold">Редактировать профиль</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Avatar upload */}
+              <div className="flex flex-col items-center gap-4">
+                <div className="relative">
+                  <Avatar className="w-32 h-32">
+                    <AvatarImage src={avatarPreview || user.avatar || "/placeholder.svg"} />
+                    <AvatarFallback>АП</AvatarFallback>
+                  </Avatar>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="secondary"
+                    className="absolute bottom-0 right-0 rounded-full"
+                    onClick={handleAvatarButtonClick}
+                  >
+                    <Camera className="w-4 h-4" />
+                    <span className="sr-only">Изменить фото</span>
+                  </Button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+                </div>
+              </div>
 
-      <label className="block font-medium">О себе:</label>
-      <textarea
-        value={bio}
-        onChange={(e) => setBio(e.target.value)}
-        className="w-full p-2 border rounded"
-      />
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="firstName">Имя</Label>
+                    <Input
+                      id="firstName"
+                      placeholder="Иван"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      className="bg-black/20 border-white/10"
+                      autoFocus
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="lastName">Фамилия</Label>
+                    <Input
+                      id="lastName"
+                      placeholder="Иванов"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      className="bg-black/20 border-white/10"
+                    />
+                  </div>
+                </div>
 
-      <button onClick={handleSave} className="mt-2 bg-blue-600 text-white p-2 rounded w-full">
-        Сохранить
-      </button>
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="example@mail.com"
+                    value={user.email}
+                    disabled
+                    className="bg-black/20 border-white/10"
+                  />
+                </div>
 
-      <label className="block mt-4 font-medium">Загрузить аватар:</label>
-      <input
-        type="file"
-        onChange={(e) => setAvatar(e.target.files?.[0] || null)}
-        className="border p-2 w-full"
-      />
-      <button onClick={handleAvatarUpload} className="mt-2 bg-green-600 text-white p-2 rounded w-full">
-        Загрузить
-      </button>
+                {/* Поле для username */}
+                <div className="space-y-2">
+                  <Label htmlFor="username">Username</Label>
+                  <Input
+                    id="username"
+                    placeholder="username"
+                    value={newUsername}
+                    onChange={(e) => setNewUsername(e.target.value)}
+                    className="bg-black/20 border-white/10"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="bio">О себе</Label>
+                  <Textarea
+                    id="bio"
+                    placeholder="Расскажите о себе..."
+                    value={bio}
+                    onChange={(e) => setBio(e.target.value)}
+                    className="min-h-[100px] bg-black/20 border-white/10"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-4 pt-4">
+                <Button type="submit" className="flex-1">
+                  Сохранить изменения
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => router.push(`/profile/${username}`)}
+                  className="flex-1"
+                >
+                  Отмена
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

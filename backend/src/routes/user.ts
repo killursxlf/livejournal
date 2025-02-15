@@ -2,7 +2,8 @@ import prisma from "../prisma";
 import { corsHeaders } from "../utils/cors";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { verifyToken } from "./auth"; 
+import { verifyToken } from "./auth";
+import fs from "fs/promises";
 
 export async function getUser(req: Request): Promise<Response> {
   const url = new URL(req.url);
@@ -37,7 +38,7 @@ export async function getUser(req: Request): Promise<Response> {
   }
 
   try {
-    // Загружаем пользователя и его посты, включая связанные данные
+    // Загружаем пользователя с его постами и отношениями подписок
     const user = await prisma.user.findUnique({
       where: whereCondition,
       include: {
@@ -52,8 +53,11 @@ export async function getUser(req: Request): Promise<Response> {
                 },
               },
             },
+            savedBy: true, // связь сохранённых постов
           },
         },
+        followers: true,
+        following: true,
       },
     });
 
@@ -67,39 +71,118 @@ export async function getUser(req: Request): Promise<Response> {
       );
     }
 
-    const postsWithExtraFields = user.posts.map((post) => ({
-      id: post.id,
-      title: post.title,
-      content: post.content,
-      createdAt: post.createdAt,
-      // Автор поста – это сам пользователь
-      author: {
+    // Если передан currentUserId, вычисляем для профиля, подписан ли он на данного пользователя
+    const isFollow = currentUserId
+      ? user.followers.some(
+          (follow: { followerId: string }) => follow.followerId === currentUserId
+        )
+      : false;
+
+    // Функция для маппинга поста в нужный формат
+    const mapPost = (post: any) => {
+      // Если у поста есть собственный автор (для понравившихся/сохранённых постов), используем его,
+      // иначе - это посты, созданные самим пользователем.
+      const author = post.author || {
         username: user.username,
         name: user.name,
         avatar: user.avatar,
+      };
+
+      const basePost = {
+        id: post.id,
+        title: post.title,
+        content: post.content,
+        createdAt: post.createdAt,
+        author: {
+          username: author.username,
+          name: author.name,
+          avatar: author.avatar,
+        },
+        postTags: post.postTags.map((pt: { tag: { name: string } }) => ({
+          tag: { name: pt.tag.name },
+        })),
+        likeCount: post.likes.length,
+        commentCount: post.comments.length,
+        comments: post.comments.map((comment: any) => ({
+          id: comment.id,
+          content: comment.content,
+          createdAt: comment.createdAt,
+          author: {
+            username: comment.user?.username || "Unknown",
+            name: comment.user?.name || "Unknown",
+            avatar: comment.user?.avatar,
+          },
+        })),
+      };
+
+      if (currentUserId) {
+        return {
+          ...basePost,
+          isLiked: post.likes.some(
+            (like: { userId: string }) => like.userId === currentUserId
+          ),
+          isSaved: post.savedBy.some(
+            (saved: { userId: string }) => saved.userId === currentUserId
+          ),
+        };
+      }
+      return basePost;
+    };
+
+    // Посты, созданные пользователем
+    const createdPosts = user.posts.map(mapPost);
+
+    // Получаем посты, которые пользователь лайкнул (могут быть не его собственными)
+    const likedPostsData = await prisma.post.findMany({
+      where: {
+        likes: {
+          some: {
+            userId: user.id,
+          },
+        },
       },
-      postTags: post.postTags.map((pt: { tag: { name: string } }) => ({
-        tag: { name: pt.tag.name },
-      })),
-      likeCount: post.likes ? post.likes.length : 0,
-      commentCount: post.comments ? post.comments.length : 0,
-      comments: post.comments
-        ? post.comments.map((comment) => ({
-            id: comment.id,
-            content: comment.content,
-            createdAt: comment.createdAt,
-            author: {
-              username: comment.user?.username || "Unknown",
-              name: comment.user?.name || "Unknown",
-              avatar: comment.user?.avatar,
+      include: {
+        author: { select: { username: true, name: true, avatar: true } },
+        postTags: { include: { tag: true } },
+        likes: { select: { userId: true } },
+        comments: {
+          include: {
+            user: {
+              select: { username: true, name: true, avatar: true },
             },
-          }))
-        : [],
-      // Вычисляем isLiked: если в post.likes есть запись с текущим userId, то true, иначе false
-      isLiked: currentUserId
-        ? post.likes.some((like: { userId: string }) => like.userId === currentUserId)
-        : false,
-    }));
+          },
+        },
+        savedBy: true,
+      },
+    });
+
+    const likedPosts = likedPostsData.map(mapPost);
+
+    // Получаем посты, которые пользователь сохранил
+    const savedPostsData = await prisma.post.findMany({
+      where: {
+        savedBy: {
+          some: {
+            userId: user.id,
+          },
+        },
+      },
+      include: {
+        author: { select: { username: true, name: true, avatar: true } },
+        postTags: { include: { tag: true } },
+        likes: { select: { userId: true } },
+        comments: {
+          include: {
+            user: {
+              select: { username: true, name: true, avatar: true },
+            },
+          },
+        },
+        savedBy: true,
+      },
+    });
+
+    const savedPosts = savedPostsData.map(mapPost);
 
     const result = {
       id: user.id,
@@ -108,15 +191,24 @@ export async function getUser(req: Request): Promise<Response> {
       name: user.name,
       bio: user.bio,
       avatar: user.avatar,
-      posts: postsWithExtraFields,
+      createdAt: user.createdAt, // Дата регистрации
+      followerCount: user.followers ? user.followers.length : 0,
+      followingCount: user.following ? user.following.length : 0,
+      isFollow,
+      posts: createdPosts,
+      likedPosts,
+      savedPosts,
     };
 
     return new Response(JSON.stringify(result), {
       status: 200,
-      headers: { "Content-Type": "application/json", ...corsHeaders() },
+      headers: {
+        "Content-Type": "application/json",
+        ...corsHeaders(),
+      },
     });
-  } catch (error) {
-    console.error("Ошибка получения пользователя:", error);
+  } catch (err) {
+    console.error("Ошибка при getUser:", err);
     return new Response(JSON.stringify({ error: "Ошибка сервера" }), {
       status: 500,
       headers: corsHeaders(),
@@ -223,12 +315,11 @@ export async function completeProfile(req: Request) {
 }
 
 
-export async function updateProfile(req: Request) {
+export async function updateProfile(req: Request): Promise<Response> {
   try {
-    // Проверяем токен и извлекаем данные из него
+    // Проверка токена
     const tokenData = await verifyToken(req);
-    console.log("Token Data:", tokenData); // Для отладки
-    // Если структура токена не содержит поле user, проверяем на верхнем уровне
+    console.log("Token Data:", tokenData);
     const tokenEmail = tokenData?.user?.email || tokenData?.email;
     
     if (!tokenEmail) {
@@ -238,10 +329,50 @@ export async function updateProfile(req: Request) {
       );
     }
 
-    // Извлекаем данные из тела запроса
-    const { email, name, bio } = await req.json();
+    // Собираем данные для обновления в объект updateData
+    const updateData: { 
+      email?: string;
+      name?: string; 
+      bio?: string; 
+      username?: string; 
+      avatar?: string 
+    } = {};
+    
+    let email: string | null = null;
+    let avatarFile: File | null = null;
 
-    // Если email из запроса не совпадает с email из токена — запрещаем операцию
+    const contentType = req.headers.get("Content-Type") || "";
+    if (contentType.includes("multipart/form-data")) {
+      // Если данные отправляются в форме (с файлом аватара)
+      const formData = await req.formData();
+      email = formData.get("email") as string | null;
+      const name = formData.get("name") as string | null;
+      const bio = formData.get("bio") as string | null;
+      const newUsername = formData.get("username") as string | null;
+      avatarFile = formData.get("avatar") as File | null;
+
+      if (email) updateData.email = email;
+      if (name) updateData.name = name;
+      if (bio) updateData.bio = bio;
+      if (newUsername) updateData.username = newUsername;
+    } else {
+      // Если данные отправляются как JSON
+      const body = await req.json();
+      email = body.email;
+      if (body.name !== undefined) updateData.name = body.name;
+      if (body.bio !== undefined) updateData.bio = body.bio;
+      if (body.username !== undefined) updateData.username = body.username;
+      if (body.email !== undefined) updateData.email = body.email;
+    }
+
+    if (!email || typeof email !== "string") {
+      return new Response(
+        JSON.stringify({ error: "Email обязателен" }),
+        { status: 400, headers: corsHeaders() }
+      );
+    }
+
+    // Сверяем email из запроса с email из токена
     if (email !== tokenEmail) {
       return new Response(
         JSON.stringify({ error: "Доступ запрещён" }),
@@ -249,9 +380,33 @@ export async function updateProfile(req: Request) {
       );
     }
 
-    const updateData: { name?: string; bio?: string } = {};
-    if (name !== undefined) updateData.name = name;
-    if (bio !== undefined) updateData.bio = bio;
+    // Если файл аватара передан, обрабатываем его:
+    if (avatarFile && avatarFile instanceof File) {
+      // Получаем текущего пользователя из БД для удаления старой аватарки
+      const existingUser = await prisma.user.findUnique({ where: { email } });
+      if (existingUser && existingUser.avatar && existingUser.avatar.startsWith("http://localhost:3000")) {
+        try {
+          // Извлекаем путь файла из URL (например, http://localhost:3000/uploads/avatar_123.png)
+          const oldUrl = new URL(existingUser.avatar);
+          const oldFilePath = `./public${oldUrl.pathname}`;
+          // Удаляем старый файл (если существует)
+          await fs.unlink(oldFilePath);
+        } catch (err) {
+          console.error("Ошибка удаления старого файла аватара:", err);
+          // Если удаление не удалось, можно продолжить, но логируем ошибку
+        }
+      }
+
+      // Генерируем новое имя файла и путь
+      const fileExtension = avatarFile.name.split(".").pop();
+      const fileName = `avatar_${Date.now()}.${fileExtension}`;
+      const filePath = `/uploads/${fileName}`;
+
+      // Записываем новый файл в папку public
+      await Bun.write(`./public${filePath}`, avatarFile);
+      // Обновляем поле avatar с новым URL
+      updateData.avatar = `http://localhost:3000${filePath}`;
+    }
 
     if (!Object.keys(updateData).length) {
       return new Response(
@@ -266,7 +421,7 @@ export async function updateProfile(req: Request) {
     });
 
     return new Response(
-      JSON.stringify({ message: "Профиль обновлён" }),
+      JSON.stringify({ message: "Профиль обновлён", ...updateData }),
       { headers: corsHeaders() }
     );
   } catch (error) {
@@ -275,68 +430,6 @@ export async function updateProfile(req: Request) {
       JSON.stringify({ error: "Ошибка обновления профиля" }),
       { status: 500, headers: corsHeaders() }
     );
-  }
-}
-
-export async function uploadAvatar(req: Request) {
-  try {
-    // Извлекаем данные токена
-    const tokenData = await verifyToken(req);
-    const tokenEmail = tokenData?.user?.email || tokenData?.email;
-    if (!tokenEmail) {
-      return new Response(JSON.stringify({ error: "Не авторизован" }), {
-        status: 401,
-        headers: corsHeaders(),
-      });
-    }
-
-    const formData = await req.formData();
-    const file = formData.get("avatar");
-    const email = formData.get("email");
-
-    if (!file || !(file instanceof File)) {
-      return new Response(JSON.stringify({ error: "Файл обязателен" }), {
-        status: 400,
-        headers: corsHeaders(),
-      });
-    }
-
-    if (!email || typeof email !== "string") {
-      return new Response(JSON.stringify({ error: "Email обязателен" }), {
-        status: 400,
-        headers: corsHeaders(),
-      });
-    }
-
-    // Сверяем email из формы с email из токена
-    if (email !== tokenEmail) {
-      return new Response(JSON.stringify({ error: "Доступ запрещён" }), {
-        status: 403,
-        headers: corsHeaders(),
-      });
-    }
-
-    const fileExtension = file.name.split(".").pop();
-    const fileName = `avatar_${Date.now()}.${fileExtension}`;
-    const filePath = `/uploads/${fileName}`;
-
-    await Bun.write(`./public${filePath}`, file);
-
-    await prisma.user.update({
-      where: { email },
-      data: { avatar: `http://localhost:3000${filePath}` },
-    });
-
-    return new Response(
-      JSON.stringify({ avatarUrl: `http://localhost:3000${filePath}` }),
-      { headers: corsHeaders() }
-    );
-  } catch (error) {
-    console.error("Ошибка загрузки аватара:", error);
-    return new Response(JSON.stringify({ error: "Ошибка загрузки" }), {
-      status: 500,
-      headers: corsHeaders(),
-    });
   }
 }
   
@@ -371,6 +464,9 @@ export async function getUserWithPosts(req: Request): Promise<Response> {
             },
           },
         },
+        // Предполагается, что вы реализовали отношения через модель Follows
+        followers: true,
+        following: true,
       },
     });
 
@@ -418,7 +514,12 @@ export async function getUserWithPosts(req: Request): Promise<Response> {
       id: user.id,
       username: user.username,
       name: user.name,
+      bio: user.bio,
+      email: user.email,
       avatar: user.avatar,
+      createdAt: user.createdAt, // Дата регистрации
+      followerCount: user.followers ? user.followers.length : 0,
+      followingCount: user.following ? user.following.length : 0,
       posts: postsWithExtraFields,
     };
 
@@ -434,7 +535,6 @@ export async function getUserWithPosts(req: Request): Promise<Response> {
     });
   }
 }
-
 
 
 export async function createPost(req: Request) {

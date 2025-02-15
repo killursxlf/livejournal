@@ -4,8 +4,16 @@ import { useEffect, useState } from "react";
 import { PostCard } from "@/components/PostCard";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Filter, TrendingUp, BookMarked, Rss } from "lucide-react";
+import { Filter, TrendingUp, BookMarked, Rss, Users } from "lucide-react";
 import { useSession } from "next-auth/react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface CommentData {
   id: number;
@@ -42,6 +50,7 @@ interface Post {
   isLiked: boolean;
   commentCount: number;
   comments?: CommentData[];
+  isSaved: boolean;
 }
 
 interface CurrentUser {
@@ -72,9 +81,10 @@ export default function PostsPage() {
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(true);
 
-  // Состояния для фильтрации и сортировки
+  // Состояния для фильтрации по тегу и подпискам
   const [selectedTag, setSelectedTag] = useState<string>("");
   const [sort, setSort] = useState<"latest" | "popular">("latest");
+  const [subscriptionsFilter, setSubscriptionsFilter] = useState<boolean>(false);
 
   useEffect(() => {
     if (status === "loading") return;
@@ -83,8 +93,14 @@ export default function PostsPage() {
     if (userID !== "") params.append("userId", userID);
     if (selectedTag) params.append("tag", selectedTag);
     if (sort === "popular") params.append("sort", "popular");
+    // Если включен фильтр подписок — добавляем соответствующий параметр
+    if (subscriptionsFilter) {
+      params.append("subscriptions", "true");
+    }
 
-    const url = `${backendURL}/api/posts${params.toString() ? "?" + params.toString() : ""}`;
+    const url = `${backendURL}/api/posts${
+      params.toString() ? "?" + params.toString() : ""
+    }`;
 
     fetch(url)
       .then((res) => res.json())
@@ -97,7 +113,7 @@ export default function PostsPage() {
       })
       .catch(() => setError("Ошибка при загрузке ленты"))
       .finally(() => setLoading(false));
-  }, [status, userID, selectedTag, sort]);
+  }, [status, userID, selectedTag, sort, subscriptionsFilter]);
 
   if (loading) {
     return (
@@ -129,6 +145,31 @@ export default function PostsPage() {
             </p>
           </div>
           <div className="flex gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant={subscriptionsFilter ? "default" : "outline"}
+                  size="sm"
+                  className="gap-2"
+                >
+                  <Users className="w-4 h-4" />
+                  Подписки
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                className="w-[200px] backdrop-blur-md bg-background/95 border-white/10"
+              >
+                <DropdownMenuLabel>Фильтр записей</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setSubscriptionsFilter(false)}>
+                  Все записи
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSubscriptionsFilter(true)}>
+                  Записи от подписок
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button variant="outline" size="sm" className="gap-2">
               <Filter className="w-4 h-4" />
               Фильтры
@@ -137,7 +178,9 @@ export default function PostsPage() {
               variant={sort === "popular" ? "default" : "outline"}
               size="sm"
               className="gap-2"
-              onClick={() => setSort(sort === "popular" ? "latest" : "popular")}
+              onClick={() =>
+                setSort(sort === "popular" ? "latest" : "popular")
+              }
             >
               <TrendingUp className="w-4 h-4" />
               {sort === "popular" ? "Популярное" : "Последние"}
@@ -181,6 +224,7 @@ export default function PostsPage() {
                     })) ?? []
                   }
                   currentUser={currentUser}
+                  isSaved={post.isSaved}
                 />
               ))}
             </div>
@@ -200,7 +244,9 @@ export default function PostsPage() {
                     {Array.from(
                       new Set(
                         posts.flatMap((post: Post) =>
-                          post.postTags ? post.postTags.map((pt: PostTag) => pt.tag.name) : []
+                          post.postTags
+                            ? post.postTags.map((pt: PostTag) => pt.tag.name)
+                            : []
                         )
                       )
                     ).map((tag: string) => (

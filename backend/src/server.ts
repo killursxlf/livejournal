@@ -12,13 +12,14 @@ import {
   getUser,
   completeProfile,
   updateProfile,
-  uploadAvatar,
 } from "./routes/user";
 import { corsHeaders } from "./utils/cors";
 import { readFile } from "fs/promises";
 import { getAllPosts, getPost } from "./routes/posts";
 import { toggleLike } from "./routes/like";
 import { addComment, DELETE } from "./routes/comment";
+import { toggleFollow } from "./routes/follow";
+import { toggleSavedPost } from "./routes/savePost";
 
 serve({
   port: 3000,
@@ -89,13 +90,15 @@ serve({
             }
           } else if (url.pathname === "/api/update-profile" && req.method === "POST") {
             response = await updateProfile(req);
-          } else if (url.pathname === "/api/upload-avatar" && req.method === "POST") {
-            response = await uploadAvatar(req);
           } else if (url.pathname === "/api/create-post" && req.method === "POST") {
             response = await createPost(req);
+          } else if (url.pathname === "/api/toggle-follow" && req.method === "POST") {
+            response = await toggleFollow(req);
+          } else if (url.pathname === "/api/toggle-saved-post" && req.method === "POST") {
+            response = await toggleSavedPost(req);
           } else {
             response = new Response("Страница не найдена", { status: 404 });
-          }
+          } 
         }
       } catch (error) {
         console.error("Ошибка на сервере:", error);

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { BookOpen, MessageSquare, ChevronDown, ChevronUp, Send, Share2, Copy, Facebook, X } from "lucide-react";
+import { MessageSquare, ChevronDown, ChevronUp, Send, Share2, Copy, Facebook, X} from "lucide-react";
 import { LikeButton } from "@/components/LikeButton";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -16,6 +16,7 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/components/ui/use-toast";
+import { SavePostButton } from "@/components/savePostButton";
 
 export interface Comment {
   id: number;
@@ -42,9 +43,10 @@ export interface PostCardProps {
   postTags: { tag: { name: string } }[];
   likeCount: number;
   isLiked: boolean;
+  commentCount: number;
   comments?: Comment[];
   currentUser?: CurrentUser;
-  commentCount?: number;
+  isSaved?: boolean;
 }
 
 export const PostCard = ({
@@ -56,11 +58,13 @@ export const PostCard = ({
   postTags,
   likeCount,
   isLiked,
+  commentCount,
   comments,
   currentUser,
+  isSaved = false,
 }: PostCardProps) => {
   const { toast } = useToast();
-  
+
   // Форматируем дату поста
   const formattedDate = new Date(createdAt).toLocaleString("ru-RU", {
     day: "numeric",
@@ -182,15 +186,13 @@ export const PostCard = ({
         credentials: "include",
         headers: { "Content-Type": "application/json" },
       });
-  
+
       const data = await response.json();
-  
+
       if (!response.ok) {
-        // Если сервер вернул ошибку, выбрасываем исключение с сообщением из data.error
         throw new Error(data.error || "Ошибка при удалении комментария");
       }
-  
-      // Обновляем локальное состояние, убираем удаленный комментарий
+
       setLocalComments((prev) => prev.filter((c) => c.id !== commentId));
       toast({
         description: "Комментарий удален",
@@ -208,7 +210,6 @@ export const PostCard = ({
       });
     }
   };
-  
 
   return (
     <Card className="group hover:border-primary/50 transition-all duration-300 backdrop-blur-sm bg-black/20 hover:bg-black/30 border-white/5 shadow-lg animate-fade-in relative">
@@ -237,7 +238,7 @@ export const PostCard = ({
             onClick={() => setShowComments(!showComments)}
           >
             <MessageSquare className="w-4 h-4" />
-            <span className="text-sm">{localComments.length}</span>
+            <span className="text-sm">{commentCount}</span>
           </button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -296,9 +297,8 @@ export const PostCard = ({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button variant="outline" size="icon" className="h-8 w-8">
-            <BookOpen className="w-5 h-5 group-hover:text-primary transition-colors" />
-          </Button>
+          {/* Используем SavePostButton с иконкой BookOpen */}
+          <SavePostButton postId={id} isSavedInitial={isSaved}/>
         </div>
       </CardHeader>
       <CardContent>

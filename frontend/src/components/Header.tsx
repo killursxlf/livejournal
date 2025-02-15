@@ -114,9 +114,11 @@ const Header = () => {
               >
                 Войти
               </Button>
+              <Link href="/register">
               <Button className="bg-primary text-foreground hover:bg-accent/80">
                 Регистрация
               </Button>
+              </Link>
             </div>
           )}
         </div>

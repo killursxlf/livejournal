@@ -1,7 +1,13 @@
 "use client";
 
-import { useState} from "react";
+import { useState } from "react";
 import { useSession, signIn } from "next-auth/react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import { FaGoogle } from "react-icons/fa";
 
 export default function Login() {
   const { data: session } = useSession(); // Текущая сессия
@@ -11,8 +17,7 @@ export default function Login() {
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
 
-  console.log("session:", session );
-
+  console.log("session:", session);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,8 +25,6 @@ export default function Login() {
     setLoading(true);
 
     // signIn - вызываем провайдера "credentials"
-    // ОБЯЗАТЕЛЬНО указываем redirect: false,
-    // чтобы NextAuth НЕ делал автоматический редирект
     const result = await signIn("credentials", {
       redirect: false,
       identifier, // то, что ждет бэкенд
@@ -31,69 +34,74 @@ export default function Login() {
     setLoading(false);
 
     if (result?.error) {
-      // Если есть ошибка, показываем
       setError(result.error || "Ошибка входа");
       return;
     }
 
-    // Если ошибки нет, NextAuth обновит сессию в фоне → useSession() 
-    // → при появлении session.user.username сработает useEffect
     console.log("Логин успешен, ждем обновления сессии...");
   };
 
-
-  //
-  // 3. Вёрстка формы
-  //
   return (
-    <div className="container mx-auto p-6 max-w-md">
-      <h1 className="text-3xl font-bold text-center">Вход</h1>
-
-      {error && <p className="text-red-500 text-center mt-2">{error}</p>}
-
-      <form onSubmit={handleSubmit} className="mt-4">
-        <input
-          type="text"
-          placeholder="Email или @username"
-          value={identifier}
-          onChange={(e) => setIdentifier(e.target.value)}
-          className="block w-full p-2 border rounded mb-2"
-          required
-        />
-        <input
-          type="password"
-          placeholder="Пароль"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="block w-full p-2 border rounded mb-2"
-          required
-        />
-
-        <button
-          type="submit"
-          className="bg-blue-600 text-white p-2 rounded w-full"
-          disabled={loading}
-        >
-          {loading ? "Входим..." : "Войти"}
-        </button>
-
-        {/* Google OAuth */}
-        <button
-          type="button"
-          onClick={() => signIn("google", { redirect: false })}
-          className="bg-red-500 text-white p-2 rounded w-full my-2"
-          disabled={loading}
-        >
-          Войти через Google
-        </button>
-
-        <p className="mt-4 text-center">
-          Нет аккаунта?{" "}
-          <a href="/register" className="text-blue-600">
-            Зарегистрироваться
-          </a>
-        </p>
-      </form>
+    <div className="min-h-screen bg-background">
+      <div className="container flex items-start justify-center pt-8 min-h-[calc(100vh-4rem)]">
+        <Card className="w-full max-w-md backdrop-blur-sm bg-black/20 border-white/5">
+          <CardHeader className="space-y-2">
+            <CardTitle className="text-2xl font-bold">Авторизация</CardTitle>
+            <CardDescription>
+              Войдите в свой аккаунт для продолжения
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {error && <p className="text-red-500 text-center">{error}</p>}
+              <div className="space-y-2">
+                <Label htmlFor="email">Email или @username</Label>
+                <Input
+                  id="email"
+                  type="text"
+                  placeholder="example@mail.com или @username"
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
+                  className="bg-black/20 border-white/10"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Пароль</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Пароль"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="bg-black/20 border-white/10"
+                  required
+                />
+              </div>
+              <Button className="w-full" type="submit" disabled={loading}>
+                {loading ? "Входим..." : "Войти"}
+              </Button>
+            </form>
+            <div className="mt-4 space-y-2">
+              <Button
+                type="button"
+                onClick={() => signIn("google", { redirect: false })}
+                className="w-full bg-white hover:bg-gray-200 text-black flex items-center justify-center gap-2"
+                disabled={loading}
+              >
+                <FaGoogle className="w-5 h-5" />
+                Войти через Google
+              </Button>
+              <p className="text-center text-sm text-muted-foreground">
+                Нет аккаунта?{" "}
+                <Link href="/register" className="text-primary hover:underline">
+                  Зарегистрироваться
+                </Link>
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

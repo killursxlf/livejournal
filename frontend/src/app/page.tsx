@@ -41,7 +41,7 @@ export default function Home()
 
   const handleWriteClick = () => {
     if (session?.user?.name) {
-      router.push(`/profile/${session.user.name}/create-post`);
+      router.push(`/profile/${session.user.username}/create-post`);
     } else {
       router.push("/login");
     }

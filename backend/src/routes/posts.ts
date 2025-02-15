@@ -8,6 +8,7 @@ export async function getAllPosts(req: Request): Promise<Response> {
     const userId = url.searchParams.get("userId");
     const tag = url.searchParams.get("tag"); // фильтр по тегу
     const sortParam = url.searchParams.get("sort"); // сортировка: например, "popular" или "latest"
+    const subscriptions = url.searchParams.get("subscriptions"); // фильтр подписок
 
     // Строим условие where
     const whereClause: any = {};
@@ -16,6 +17,19 @@ export async function getAllPosts(req: Request): Promise<Response> {
       whereClause.postTags = {
         some: {
           tag: { name: tag },
+        },
+      };
+    }
+
+    // Если включен фильтр подписок и передан userId, то выбираем посты только от авторов,
+    // на которых подписан текущий пользователь. Для этого проверяем наличие записи в связи followers
+    // у автора, где followerId совпадает с userId.
+    if (subscriptions === "true" && userId) {
+      whereClause.author = {
+        followers: {
+          some: {
+            followerId: userId,
+          },
         },
       };
     }
@@ -39,7 +53,7 @@ export async function getAllPosts(req: Request): Promise<Response> {
       orderBy: orderByClause,
       include: {
         author: {
-          select: { username: true, name: true, email: true, avatar: true },
+          select: { username: true, name: true, email: true, avatar: true, followers: true },
         },
         postTags: { include: { tag: true } },
         likes: true,
@@ -50,6 +64,8 @@ export async function getAllPosts(req: Request): Promise<Response> {
             },
           },
         },
+        // Включаем связь сохранённых постов
+        savedBy: true,
       },
     });
 
@@ -91,6 +107,10 @@ export async function getAllPosts(req: Request): Promise<Response> {
           ...basePost,
           isLiked: post.likes.some(
             (like: { userId: string }) => like.userId === userId
+          ),
+          // Проверяем, есть ли запись в savedBy с данным userId
+          isSaved: post.savedBy.some(
+            (saved: { userId: string }) => saved.userId === userId
           ),
         };
       }

@@ -20,10 +20,15 @@ model User {
   username  String  @unique
   password  String  @db.VarChar(255)
   bio       String?  
-  avatar    String?  
+  avatar    String?
+  createdAt DateTime @default(now())
   posts     Post[]
   likes    Like[]
-  comments Comment[]   
+  comments Comment[]
+
+  following Follows[] @relation("following")
+  followers Follows[] @relation("followers")
+  savedPosts SavedPost[]
 }
 
 model Post {
@@ -37,6 +42,7 @@ model Post {
   likes      Like[]
   comments   Comment[]
   createdAt DateTime @default(now())
+  savedBy    SavedPost[]
 }
 
 model Tag {
@@ -79,3 +85,22 @@ model Comment {
   user      User     @relation(fields: [userId], references: [id])
 }
 
+model Follows {
+  followerId  String
+  followingId String
+
+  follower    User @relation("following", fields: [followerId], references: [id])
+  following   User @relation("followers", fields: [followingId], references: [id])
+
+  @@id([followerId, followingId])
+}
+
+model SavedPost {
+  userId String
+  postId String
+
+  user   User @relation(fields: [userId], references: [id])
+  post   Post @relation(fields: [postId], references: [id])
+
+  @@id([userId, postId])
+}
