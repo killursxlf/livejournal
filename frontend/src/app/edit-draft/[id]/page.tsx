@@ -1,225 +1,217 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useState, useEffect, useRef } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import TitleInput from "@/components/TitleInput";
 import TagsInput from "@/components/TagsInput";
-import Editor from "@/components/Editor";
-import Sidebar from "@/components/Sidebar";
+import "easymde/dist/easymde.min.css";
+import Sidebar, { VersionType } from "@/components/Sidebar";
 import BackButton from "@/components/BackButton";
-import { useToast } from "@/hooks/use-toast"; // Импортируем ваш useToast
+import EasyMDE from "easymde";
+import { useToast } from "@/components/ui/use-toast";
 
-interface VersionType {
-  id: string;
+const backendURL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000";
+
+// Определяем тип ответа от API
+interface PostResponse {
   title: string;
   content: string;
-  createdAt: string;
-  tags?: string[];
-  postType?: string;
-  publishDate?: string;
-  publishTime?: string;
+  postTags: { tag: { name: string } }[];
+  postType: string;
+  publishDate: string;
+  publishTime: string;
+  postVersions: VersionType[];
 }
 
 export default function EditDraft() {
+  const { data: session } = useSession();
   const params = useParams();
-  // Получаем идентификатор поста из параметров маршрута
-  const { id } = params;
   const router = useRouter();
-  const backendURL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000";
+  const { toast } = useToast();
+  const id = params.id; // получаем id из динамического сегмента маршрута
 
-  const [loading, setLoading] = useState(true);
   const [title, setTitle] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [content, setContent] = useState("");
-  // postType в UI формате, например "Article"
   const [postType, setPostType] = useState("Article");
   const [publishDate, setPublishDate] = useState("");
   const [publishTime, setPublishTime] = useState("");
-  // Состояние для версий поста
   const [versions, setVersions] = useState<VersionType[]>([]);
-  // Сохраняем актуальную версию для возможности возврата
-  const [currentVersion, setCurrentVersion] = useState<{
-    title: string;
-    content: string;
-    tags: string[];
-    postType: string;
-    publishDate: string;
-    publishTime: string;
-  } | null>(null);
+  // Сохраняем текущий (актуальный) черновик, чтобы можно было вернуться к нему
+  const [currentDraft, setCurrentDraft] = useState<{ title: string; content: string } | null>(null);
 
-  // Мэппинг UI-значения в значение для БД
-  const publicationTypeMapping = useMemo(
-    () => ({
+  const editorRef = useRef<HTMLDivElement>(null);
+  const [easyMDEInstance, setEasyMDEInstance] = useState<EasyMDE | null>(null);
+
+  // Эффект для инициализации редактора
+  useEffect(() => {
+    let easyMDE: EasyMDE | null = null;
+
+    (async () => {
+      const { default: EasyMDE } = await import("easymde");
+      if (editorRef.current) {
+        easyMDE = new EasyMDE({
+          element: editorRef.current.querySelector("textarea")!,
+          spellChecker: false,
+          autofocus: true,
+          placeholder: "Начните писать ваш пост...",
+          toolbar: [
+            "bold",
+            "italic",
+            "heading",
+            "|",
+            "quote",
+            "unordered-list",
+            "ordered-list",
+            "|",
+            "link",
+            "image",
+            "|",
+            "preview",
+            "side-by-side",
+            "fullscreen",
+            "|",
+            "guide",
+          ],
+          minHeight: "300px",
+        });
+        setEasyMDEInstance(easyMDE);
+
+        easyMDE.codemirror.on("change", () => {
+          setContent(easyMDE!.value());
+        });
+
+        const cmElement = editorRef.current.querySelector(".CodeMirror") as HTMLElement;
+        if (cmElement) {
+          cmElement.style.backgroundColor = "hsl(var(--muted))";
+          cmElement.style.color = "hsl(var(--foreground))";
+        }
+      }
+    })();
+
+    return () => {
+      if (easyMDE) {
+        easyMDE.toTextArea();
+        easyMDE.cleanup();
+      }
+    };
+  }, []);
+
+  // Эффект для получения данных поста
+  useEffect(() => {
+    if (!id) {
+      console.log("ID отсутствует, GET-запрос не выполняется");
+      return;
+    }
+    console.log("Выполняем GET-запрос для id:", id);
+
+    fetch(`${backendURL}/api/getpost?id=${id}`, {
+      credentials: "include",
+    })
+      .then((res) => res.json())
+      .then((data: PostResponse) => {
+        console.log("Получены данные:", data);
+        setTitle(data.title || "");
+        setContent(data.content || "");
+        // Сохраняем текущий черновик для возможности возврата
+        setCurrentDraft({
+          title: data.title || "",
+          content: data.content || "",
+        });
+        // Преобразуем массив postTags в массив строк
+        setTags(
+          (data.postTags || []).map(
+            (item: { tag: { name: string } }) => item.tag.name
+          )
+        );
+        setPostType(data.postType || "Article");
+        setPublishDate(data.publishDate || "");
+        setPublishTime(data.publishTime || "");
+
+        // Сохраняем версии поста
+        setVersions(data.postVersions || []);
+
+        if (easyMDEInstance) {
+          easyMDEInstance.value(data.content || "");
+        }
+      })
+      .catch((err) => {
+        console.error("Ошибка получения данных поста:", err);
+      });
+  }, [id, easyMDEInstance]);
+
+  // Обработчик выбора версии
+  const handleVersionSelect = (version: VersionType) => {
+    setTitle(version.title || "");
+    setContent(version.content || "");
+    if (easyMDEInstance) {
+      easyMDEInstance.value(version.content || "");
+    }
+  };
+
+  // Обработчик возврата к текущему черновику
+  const handleRestoreCurrentVersion = () => {
+    if (currentDraft) {
+      setTitle(currentDraft.title);
+      setContent(currentDraft.content);
+      if (easyMDEInstance) {
+        easyMDEInstance.value(currentDraft.content);
+      }
+    }
+  };
+
+  // Функция для обновления поста (черновика)
+  const updatePost = async (status: "PUBLISHED" | "DRAFT") => {
+    const publicationTypeMapping: Record<string, string> = {
       Article: "ARTICLE",
       News: "NEWS",
       Review: "REVIEW",
-    }),
-    []
-  );
+    };
 
-  // Инициализация useToast
-  const { toast } = useToast();
+    const payload = {
+      id,
+      title,
+      content,
+      email: session?.user?.email,
+      tags,
+      status,
+      publicationType: publicationTypeMapping[postType],
+      publishDate,
+      publishTime,
+    };
 
-  // Загрузка данных черновика
-  useEffect(() => {
-    if (id) {
-      fetch(`${backendURL}/api/getpost?id=${id}`, { credentials: "include" })
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.error) {
-            console.error(data.error);
-          } else {
-            setTitle(data.title);
-            setContent(data.content);
-            setTags(
-              data.postTags
-                ? data.postTags.map((pt: { tag: { name: string } }) => pt.tag.name)
-                : []
-            );
-            // Преобразуем тип с бэка в UI-формат
-            setPostType(
-              data.publicationType === "ARTICLE"
-                ? "Article"
-                : data.publicationType === "NEWS"
-                ? "News"
-                : data.publicationType === "REVIEW"
-                ? "Review"
-                : data.publicationType
-            );
-            if (data.publishAt) {
-              const d = new Date(data.publishAt);
-              setPublishDate(d.toISOString().split("T")[0]);
-              setPublishTime(d.toISOString().split("T")[1].slice(0, 5));
-            }
-            setCurrentVersion({
-              title: data.title,
-              content: data.content,
-              tags: data.postTags
-                ? data.postTags.map((pt: { tag: { name: string } }) => pt.tag.name)
-                : [],
-              postType:
-                data.publicationType === "ARTICLE"
-                  ? "Article"
-                  : data.publicationType === "NEWS"
-                  ? "News"
-                  : data.publicationType === "REVIEW"
-                  ? "Review"
-                  : data.publicationType,
-              publishDate: data.publishAt
-                ? new Date(data.publishAt).toISOString().split("T")[0]
-                : "",
-              publishTime: data.publishAt
-                ? new Date(data.publishAt).toISOString().split("T")[1].slice(0, 5)
-                : "",
-            });
-            setVersions(data.postVersions || []);
-          }
-          setLoading(false);
-        })
-        .catch((err) => {
-          console.error(err);
-          setLoading(false);
+    try {
+      const res = await fetch(`${backendURL}/api/update-post`, {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        toast({
+          description: "Пост успешно обновлен",
+          duration: 3000,
         });
-    }
-  }, [id, backendURL]);
-
-  // Функция для загрузки выбранной версии
-  const onSelectVersion = (versionId: string) => {
-    const selectedVersion = versions.find((v) => v.id === versionId);
-    if (selectedVersion) {
-      setTitle(selectedVersion.title);
-      setContent(selectedVersion.content);
-      if (selectedVersion.tags) setTags(selectedVersion.tags);
-      if (selectedVersion.postType) setPostType(selectedVersion.postType);
-      if (selectedVersion.publishDate) setPublishDate(selectedVersion.publishDate);
-      if (selectedVersion.publishTime) setPublishTime(selectedVersion.publishTime);
-    }
-  };
-
-  // Функция для возврата к актуальной версии
-  const onResetVersion = () => {
-    if (currentVersion) {
-      setTitle(currentVersion.title);
-      setContent(currentVersion.content);
-      setTags(currentVersion.tags);
-      setPostType(currentVersion.postType);
-      setPublishDate(currentVersion.publishDate);
-      setPublishTime(currentVersion.publishTime);
-    }
-  };
-
-  // Функция сохранения черновика со статусом DRAFT
-  const saveDraft = async () => {
-    const payload = {
-      id,
-      title,
-      content,
-      tags,
-      publicationType:
-        publicationTypeMapping[postType as keyof typeof publicationTypeMapping] || postType,
-      publishDate,
-      publishTime,
-      status: "DRAFT",
-    };
-
-    try {
-      const res = await fetch(`${backendURL}/api/update-post`, {
-        method: "PUT",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        toast({ title: "Success", description: data.message || "Черновик сохранён" });
+        // Перенаправляем на /posts после успешного обновления
+        router.push("/posts");
       } else {
-        toast({ title: "Error", description: data.error || "Ошибка сохранения черновика" });
+        console.error("Ошибка обновления поста:", data.error);
       }
     } catch (error) {
-      console.error("Ошибка сохранения черновика:", error);
-      toast({ title: "Error", description: "Ошибка сохранения черновика" });
+      console.error("Ошибка обновления поста:", error);
     }
   };
 
-  // Функция публикации поста со статусом PUBLISHED
-  const publishPost = async () => {
-    const payload = {
-      id,
-      title,
-      content,
-      tags,
-      publicationType:
-        publicationTypeMapping[postType as keyof typeof publicationTypeMapping] || postType,
-      publishDate,
-      publishTime,
-      status: "PUBLISHED",
-    };
-
-    try {
-      const res = await fetch(`${backendURL}/api/update-post`, {
-        method: "PUT",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        toast({ title: "Success", description: data.message || "Пост опубликован" });
-        if (data.author && data.author.username) {
-          router.push(`/profile/${data.author.username}`);
-        } else {
-          console.error("Отсутствует информация об авторе в ответе", data);
-        }
-      } else {
-        toast({ title: "Error", description: data.error || "Ошибка публикации поста" });
-      }
-    } catch (error) {
-      console.error("Ошибка публикации поста:", error);
-      toast({ title: "Error", description: "Ошибка публикации поста" });
-    }
+  const handlePublish = () => {
+    updatePost("PUBLISHED");
   };
 
-  if (loading) return <p>Загрузка черновика...</p>;
+  const handleSaveDraft = () => {
+    updatePost("DRAFT");
+  };
 
   return (
     <div className="min-h-screen bg-dark-bg">
@@ -228,10 +220,12 @@ export default function EditDraft() {
           <div className="w-16 flex-shrink-0">
             <BackButton />
           </div>
-          <div className="flex-grow space-y-6">
+          <div className="flex-grow space-y-6 animate-fade-up">
             <TitleInput value={title} onChange={(e) => setTitle(e.target.value)} />
             <TagsInput value={tags} onChange={setTags} />
-            <Editor value={content} onChange={setContent} />
+            <div ref={editorRef} className="w-full bg-muted rounded-lg overflow-hidden">
+              <textarea className="w-full" />
+            </div>
           </div>
           <Sidebar
             postType={postType}
@@ -240,11 +234,11 @@ export default function EditDraft() {
             setPublishDate={setPublishDate}
             publishTime={publishTime}
             setPublishTime={setPublishTime}
-            onPublish={publishPost}
-            onSaveDraft={saveDraft}
+            onPublish={handlePublish}
+            onSaveDraft={handleSaveDraft}
             versions={versions}
-            onSelectVersion={onSelectVersion}
-            onResetVersion={onResetVersion}
+            onSelectVersion={handleVersionSelect}
+            onRestoreCurrent={handleRestoreCurrentVersion}
           />
         </div>
       </main>

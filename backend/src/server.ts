@@ -14,7 +14,7 @@ import {
 } from "./routes/user";
 import { corsHeaders } from "./utils/cors";
 import { readFile } from "fs/promises";
-import { getAllPosts, getPost, createPost, updateDraft } from "./routes/posts";
+import { getAllPosts, getPost, createPost, updateDraft, deletePost } from "./routes/posts";
 import { toggleLike } from "./routes/like";
 import { addComment, DELETE } from "./routes/comment";
 import { toggleFollow } from "./routes/follow";
@@ -97,6 +97,8 @@ serve({
             response = await toggleSavedPost(req);
           } else if (url.pathname === "/api/update-post" && req.method === "PUT") {
             response = await updateDraft(req);
+          } else if (url.pathname === "/api/delete-post" && req.method === "DELETE") {
+            response = await deletePost(req);
           } else {
             response = new Response("Страница не найдена", { status: 404 });
           } 

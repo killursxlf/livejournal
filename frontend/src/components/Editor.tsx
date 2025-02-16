@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import EasyMDE from "easymde";
+import { useLayoutEffect, useRef } from "react";
 import "easymde/dist/easymde.min.css";
+import type EasyMDEType from "easymde";
 
 interface EditorProps {
   value: string;
@@ -11,62 +11,66 @@ interface EditorProps {
 
 export default function Editor({ value, onChange }: EditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
-  const easyMDERef = useRef<EasyMDE | null>(null);
+  const easyMDERef = useRef<EasyMDEType | null>(null);
 
-  useEffect(() => {
-    if (editorRef.current && !easyMDERef.current) {
-      easyMDERef.current = new EasyMDE({
-        element: editorRef.current.querySelector("textarea")!,
-        initialValue: value,
-        spellChecker: false,
-        placeholder: "Start writing your post...",
-        toolbar: [
-          "bold",
-          "italic",
-          "heading",
-          "|",
-          "quote",
-          "unordered-list",
-          "ordered-list",
-          "|",
-          "link",
-          "image",
-          "|",
-          "preview",
-          "side-by-side",
-          "fullscreen",
-          "|",
-          "guide",
-        ],
-        minHeight: "300px",
-        lineWrapping: true,
-      });
+  useLayoutEffect(() => {
+    if (typeof window !== "undefined" && editorRef.current && !easyMDERef.current) {
+      import("easymde").then((module) => {
+        const EasyMDE = module.default as typeof module.default;
+        const textarea = editorRef.current?.querySelector("textarea");
+        if (!textarea) return;
+        easyMDERef.current = new EasyMDE({
+          element: textarea,
+          spellChecker: false,
+          placeholder: "Start writing your post...",
+          toolbar: [
+            "bold",
+            "italic",
+            "heading",
+            "|",
+            "quote",
+            "unordered-list",
+            "ordered-list",
+            "|",
+            "link",
+            "image",
+            "|",
+            "preview",
+            "side-by-side",
+            "fullscreen",
+            "|",
+            "guide",
+          ],
+          minHeight: "300px",
+          lineWrapping: true,
+        });
 
-      // Программно устанавливаем фокус
-      setTimeout(() => {
-        easyMDERef.current?.codemirror.focus();
-      }, 0);
+        // Устанавливаем фокус и делаем refresh после небольшой задержки
+        setTimeout(() => {
+          easyMDERef.current?.codemirror.focus();
+          easyMDERef.current?.codemirror.refresh();
+        }, 100);
 
-      // Применяем кастомные стили для CodeMirror
-      const cmElement = editorRef.current.querySelector(".CodeMirror") as HTMLElement;
-      if (cmElement) {
-        cmElement.style.backgroundColor = "hsl(var(--muted))";
-        cmElement.style.color = "hsl(var(--foreground))";
-        cmElement.style.direction = "ltr";
-        cmElement.style.unicodeBidi = "normal";
-        cmElement.style.textAlign = "left";
-      }
+        const cmElement = editorRef.current?.querySelector(".CodeMirror") as HTMLElement | null;
+        if (cmElement) {
+          cmElement.style.backgroundColor = "hsl(var(--muted))";
+          cmElement.style.color = "hsl(var(--foreground))";
+          cmElement.style.direction = "ltr";
+          cmElement.style.unicodeBidi = "normal";
+          cmElement.style.textAlign = "left";
+        }
 
-      // Подписываемся на событие изменения редактора и добавляем лог
-      easyMDERef.current.codemirror.on("change", () => {
-        const newValue = easyMDERef.current!.value();
-        console.log("Editor changed. New value:", newValue);
-        onChange(newValue);
+        easyMDERef.current.codemirror.on("change", () => {
+          const newValue = easyMDERef.current?.value() ?? "";
+          console.log("Editor changed. New value:", newValue);
+          onChange(newValue);
+        });
       });
     } else if (easyMDERef.current) {
-      // Если значение изменилось извне, обновляем редактор
       if (value !== easyMDERef.current.value()) {
         easyMDERef.current.value(value);
+        // Обновляем CodeMirror после программного обновления значения
+        easyMDERef.current.codemirror.refresh();
       }
     }
 

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { MessageSquare, ChevronDown, ChevronUp, Send, Share2, Copy, Facebook, X} from "lucide-react";
+import { MessageSquare, ChevronDown, ChevronUp, Send, Share2, Copy, Facebook, X } from "lucide-react";
 import { LikeButton } from "@/components/LikeButton";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/components/ui/use-toast";
 import { SavePostButton } from "@/components/savePostButton";
+import ReactMarkdown from "react-markdown";
 
 export interface Comment {
   id: number;
@@ -47,6 +48,8 @@ export interface PostCardProps {
   comments?: Comment[];
   currentUser?: CurrentUser;
   isSaved?: boolean;
+  // Новый проп для отображения уведомления о запланированной публикации
+  scheduledMessage?: string;
 }
 
 export const PostCard = ({
@@ -62,6 +65,7 @@ export const PostCard = ({
   comments,
   currentUser,
   isSaved = false,
+  scheduledMessage, // новый проп
 }: PostCardProps) => {
   const { toast } = useToast();
 
@@ -227,6 +231,11 @@ export const PostCard = ({
               {title}
             </CardTitle>
           </Link>
+          {scheduledMessage && (
+            <p className="text-xs italic text-muted-foreground mt-1">
+              {scheduledMessage}
+            </p>
+          )}
           <p className="text-sm text-muted-foreground/80">
             {author.name} • {formattedDate}
           </p>
@@ -297,34 +306,28 @@ export const PostCard = ({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          {/* Используем SavePostButton с иконкой BookOpen */}
-          <SavePostButton postId={id} isSavedInitial={isSaved}/>
+          <SavePostButton postId={id} isSavedInitial={isSaved} />
         </div>
       </CardHeader>
       <CardContent>
-        <div
-          className="clamped-text text-muted-foreground"
-          dangerouslySetInnerHTML={{ __html: content }}
-        />
+        <div className="clamped-text text-muted-foreground">
+          {/* Используем ReactMarkdown для рендеринга контента */}
+          <ReactMarkdown>{content}</ReactMarkdown>
+        </div>
         {postTags && postTags.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-2">
             {postTags.map((pt, index) => (
-              <span
-                key={index}
-                className="text-xs bg-primary/10 text-primary px-2 py-1 rounded"
-              >
+              <span key={index} className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">
                 #{pt.tag.name}
               </span>
             ))}
           </div>
         )}
       </CardContent>
-
       {/* Секция комментариев */}
       {showComments && (
         <div className="mt-6 space-y-4 pb-4">
           <div className="h-px bg-border/5 my-4" />
-          {/* Форма для добавления комментария */}
           <form onSubmit={handleSubmitComment} className="flex gap-2">
             <Textarea
               placeholder="Написать комментарий..."
@@ -332,16 +335,10 @@ export const PostCard = ({
               onChange={(e) => setNewComment(e.target.value)}
               className="ml-4 min-h-[60px] bg-black/20 border-white/5 text-sm"
             />
-            <Button
-              type="submit"
-              size="icon"
-              className="h-[60px] shrink-0 mr-4"
-              disabled={!newComment.trim()}
-            >
+            <Button type="submit" size="icon" className="h-[60px] shrink-0 mr-4" disabled={!newComment.trim()}>
               <Send className="w-4 h-4" />
             </Button>
           </form>
-
           {visibleComments.map((comment, index) => (
             <div key={comment.id ?? index} className="flex items-start gap-3 ml-4 mb-4">
               <Avatar className="w-6 h-6">
@@ -350,9 +347,7 @@ export const PostCard = ({
               </Avatar>
               <div className="flex-1 space-y-1">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-foreground">
-                    {comment.author}
-                  </span>
+                  <span className="text-sm font-medium text-foreground">{comment.author}</span>
                   <div className="flex items-center gap-2 pr-4">
                     <span className="text-xs text-muted-foreground">
                       {new Date(comment.date).toLocaleString("ru-RU", {
@@ -369,26 +364,9 @@ export const PostCard = ({
                           <ChevronDown className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent
-                        align="end"
-                        className="w-[160px] backdrop-blur-md bg-background/95 border-white/10"
-                      >
-                        <DropdownMenuItem
-                          onClick={() => handleDeleteComment(comment.id)}
-                          className="text-red-500 focus:text-red-500"
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="15"
-                            height="15"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            className="mr-2"
-                          >
+                      <DropdownMenuContent align="end" className="w-[160px] backdrop-blur-md bg-background/95 border-white/10">
+                        <DropdownMenuItem onClick={() => handleDeleteComment(comment.id)} className="text-red-500 focus:text-red-500">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2">
                             <path d="M3 6h18" />
                             <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
                             <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
@@ -399,20 +377,12 @@ export const PostCard = ({
                     </DropdownMenu>
                   </div>
                 </div>
-                <p className="text-sm text-muted-foreground/90">
-                  {comment.content}
-                </p>
+                <p className="text-sm text-muted-foreground/90">{comment.content}</p>
               </div>
             </div>
           ))}
-
           {localComments.length > 2 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="w-full mt-2 text-xs"
-              onClick={() => setShowAllComments(!showAllComments)}
-            >
+            <Button variant="ghost" size="sm" className="w-full mt-2 text-xs" onClick={() => setShowAllComments(!showAllComments)}>
               {showAllComments ? (
                 <>
                   <ChevronUp className="w-4 h-4 mr-1" /> Скрыть

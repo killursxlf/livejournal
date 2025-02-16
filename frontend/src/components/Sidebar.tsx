@@ -6,10 +6,11 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 
-interface VersionType {
+export interface VersionType {
   id: string;
   createdAt: string;
   title?: string;
+  content: string;
 }
 
 interface SidebarProps {
@@ -23,8 +24,8 @@ interface SidebarProps {
   onSaveDraft: () => void;
   // Новые пропсы для версий поста:
   versions?: VersionType[];
-  onSelectVersion?: (versionId: string) => void;
-  onResetVersion?: () => void;
+  onSelectVersion?: (version: VersionType) => void;
+  onRestoreCurrent?: () => void;
 }
 
 export default function Sidebar({
@@ -38,7 +39,7 @@ export default function Sidebar({
   onSaveDraft,
   versions = [],
   onSelectVersion,
-  onResetVersion,
+  onRestoreCurrent,
 }: SidebarProps) {
   return (
     <aside className="w-full lg:w-64 space-y-6 animate-fade-in">
@@ -63,22 +64,26 @@ export default function Sidebar({
         {versions.length > 0 ? (
           <ul className="space-y-2">
             {versions.map((version) => (
-              <li
-                key={version.id}
-                className="flex items-center text-sm text-muted-foreground cursor-pointer hover:text-primary"
-                onClick={() => onSelectVersion && onSelectVersion(version.id)}
-              >
-                <Clock className="w-4 h-4 mr-2" />
-                {new Date(version.createdAt).toLocaleString()}
+              <li key={version.id}>
+                <button
+                  onClick={() => onSelectVersion && onSelectVersion(version)}
+                  className="flex items-center text-sm text-muted-foreground hover:text-primary focus:outline-none"
+                >
+                  <Clock className="w-4 h-4 mr-2" />
+                  <span>
+                    {new Date(version.createdAt).toLocaleString()}
+                    {version.title ? ` — ${version.title}` : ""}
+                  </span>
+                </button>
               </li>
             ))}
           </ul>
         ) : (
           <p className="text-sm text-muted-foreground">No versions available</p>
         )}
-        {versions.length > 0 && onResetVersion && (
+        {versions.length > 0 && onRestoreCurrent && (
           <button
-            onClick={onResetVersion}
+            onClick={onRestoreCurrent}
             className="mt-2 text-sm text-white bg-blue-700 hover:bg-blue-600 rounded-md px-2 py-1"
           >
             Return to Current Version

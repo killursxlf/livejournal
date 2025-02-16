@@ -41,6 +41,7 @@ interface PostData {
   title: string;
   content: string;
   createdAt: string;
+  publishAt?: string; // добавляем поле publishAt
   status: string; // добавляем поле status
   author: {
     username: string;
@@ -151,6 +152,17 @@ export default function UserProfile() {
     year: "numeric",
   });
 
+  // Фильтрация публикаций:
+  // Отбираем только посты, у которых статус не DRAFT,
+  // и которые имеют publishAt, наступившее на текущий момент.
+  const publishedPosts = user.posts?.filter((post: PostData) => {
+    if (post.status === "DRAFT") return false;
+    if (!post.publishAt) return false;
+    const publishAt = new Date(post.publishAt);
+    const now = new Date();
+    return publishAt <= now;
+  });
+
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto py-8 space-y-8">
@@ -198,7 +210,7 @@ export default function UserProfile() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent 
                         align="end" 
-                        className="bg-background shadow-lg z-50" // задаем непрозрачный фон и высокий z-index
+                        className="bg-background shadow-lg z-50"
                       >
                         <DropdownMenuItem asChild>
                           <Link href={`/profile/${username}/edit`}>
@@ -279,98 +291,118 @@ export default function UserProfile() {
             </TabsList>
 
             <TabsContent value="posts" className="space-y-6">
-              {user.posts && user.posts.filter((post: PostData) => post.status !== "DRAFT").length > 0 ? (
+              {publishedPosts && publishedPosts.length > 0 ? (
                 <div className="space-y-4">
-                  {user.posts
-                    .filter((post: PostData) => post.status !== "DRAFT")
-                    .map((post: PostData) => (
-                      <PostCard
-                        key={post.id}
-                        id={post.id}
-                        title={post.title}
-                        content={post.content}
-                        author={{
-                          name: post.author?.name ?? "Unknown",
-                          avatar: post.author?.avatar,
-                        }}
-                        createdAt={new Date(post.createdAt)}
-                        postTags={
-                          post.postTags
-                            ? post.postTags.map((pt) => ({
-                                tag: { name: pt.tag.name },
-                              }))
-                            : []
-                        }
-                        likeCount={post.likeCount}
-                        isLiked={post.isLiked}
-                        commentCount={post.commentCount}
-                        comments={
-                          post.comments?.map((comment) => ({
-                            id: comment.id,
-                            content: comment.content,
-                            date: comment.createdAt,
-                            author: comment.author?.name ?? "Unknown",
-                            avatar: comment.author?.avatar,
-                          })) ?? []
-                        }
-                        currentUser={currentUser}
-                        isSaved={post.isSaved}
-                      />
-                    ))}
+                  {publishedPosts.map((post: PostData) => (
+                    <PostCard
+                      key={post.id}
+                      id={post.id}
+                      title={post.title}
+                      content={post.content}
+                      author={{
+                        name: post.author?.name ?? "Unknown",
+                        avatar: post.author?.avatar,
+                      }}
+                      createdAt={new Date(post.createdAt)}
+                      postTags={
+                        post.postTags
+                          ? post.postTags.map((pt) => ({
+                              tag: { name: pt.tag.name },
+                            }))
+                          : []
+                      }
+                      likeCount={post.likeCount}
+                      isLiked={post.isLiked}
+                      commentCount={post.commentCount}
+                      comments={
+                        post.comments?.map((comment) => ({
+                          id: comment.id,
+                          content: comment.content,
+                          date: comment.createdAt,
+                          author: comment.author?.name ?? "Unknown",
+                          avatar: comment.author?.avatar,
+                        })) ?? []
+                      }
+                      currentUser={currentUser}
+                      isSaved={post.isSaved}
+                    />
+                  ))}
                 </div>
               ) : (
                 <p className="text-gray-500 mt-4">Пока нет публикаций.</p>
               )}
             </TabsContent>
 
-            {isOwner && (
-              <TabsContent value="drafts" className="space-y-6">
-              {user.draftPosts && user.draftPosts.length > 0 ? (
+            <TabsContent value="drafts" className="space-y-6">
+              {isOwner ? (
                 <div className="space-y-4">
-                  {user.draftPosts.map((post: PostData) => (
-                    // Используем Link без вложенного <a>, если PostCard сам не рендерит <a>
-                    <Link key={post.id} href={`/edit-draft/${post.id}`} passHref legacyBehavior>
-                      <div className="cursor-pointer">
-                        <PostCard
-                          id={post.id}
-                          title={post.title}
-                          content={post.content}
-                          author={{
-                            name: post.author?.name ?? "Unknown",
-                            avatar: post.author?.avatar,
-                          }}
-                          createdAt={new Date(post.createdAt)}
-                          postTags={
-                            post.postTags
-                              ? post.postTags.map((pt) => ({
-                                  tag: { name: pt.tag.name },
-                                }))
-                              : []
-                          }
-                          likeCount={post.likeCount}
-                          isLiked={post.isLiked}
-                          commentCount={post.commentCount}
-                          comments={
-                            post.comments?.map((comment) => ({
-                              id: comment.id,
-                              content: comment.content,
-                              date: comment.createdAt,
-                              author: comment.author?.name ?? "Unknown",
-                              avatar: comment.author?.avatar,
-                            })) ?? []
-                          }
-                          currentUser={currentUser}
-                          isSaved={post.isSaved}
-                        />
-                      </div>
-                    </Link>
-                  ))}
+                  {(() => {
+                    const now = new Date();
+                    // Посты, запланированные к публикации: статус "PUBLISHED", но дата публикации ещё не наступила
+                    const scheduledPosts = user.posts?.filter(
+                      (post: PostData) =>
+                        post.status === "PUBLISHED" &&
+                        post.publishAt &&
+                        new Date(post.publishAt) > now
+                    ) || [];
+                    // Черновики (статус DRAFT)
+                    const drafts = user.draftPosts || [];
+                    // Объединяем оба массива
+                    const allDrafts = [...drafts, ...scheduledPosts];
+                    if (allDrafts.length === 0) {
+                      return <p className="text-gray-500 mt-4">Пока нет черновиков.</p>;
+                    }
+                    return allDrafts.map((post: PostData) => (
+                      <Link key={post.id} href={`/edit-draft/${post.id}`} passHref legacyBehavior>
+                        <div className="cursor-pointer">
+                          <PostCard
+                            id={post.id}
+                            title={post.title}
+                            content={post.content}
+                            author={{
+                              name: post.author?.name ?? "Unknown",
+                              avatar: post.author?.avatar,
+                            }}
+                            createdAt={new Date(post.createdAt)}
+                            postTags={
+                              post.postTags
+                                ? post.postTags.map((pt) => ({
+                                    tag: { name: pt.tag.name },
+                                  }))
+                                : []
+                            }
+                            likeCount={post.likeCount}
+                            isLiked={post.isLiked}
+                            commentCount={post.commentCount}
+                            comments={
+                              post.comments?.map((comment) => ({
+                                id: comment.id,
+                                content: comment.content,
+                                date: comment.createdAt,
+                                author: comment.author?.name ?? "Unknown",
+                                avatar: comment.author?.avatar,
+                              })) ?? []
+                            }
+                            currentUser={currentUser}
+                            isSaved={post.isSaved}
+                            // Если пост запланирован, передаём scheduledMessage
+                            scheduledMessage={
+                              post.status === "PUBLISHED" &&
+                              post.publishAt &&
+                              new Date(post.publishAt) > now
+                                ? `Публикация запланирована на ${new Date(post.publishAt).toLocaleString()}`
+                                : undefined
+                            }
+                          />
+                        </div>
+                      </Link>
+                    ));
+                  })()}
                 </div>
               ) : (
                 <p className="text-gray-500 mt-4">Пока нет черновиков.</p>
               )}
-            </TabsContent>    
-            )}
+            </TabsContent>
 
             <TabsContent value="liked" className="space-y-6">
               {user.likedPosts && user.likedPosts.length > 0 ? (

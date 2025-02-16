@@ -8,19 +8,17 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { SavePostButton } from "@/components/savePostButton";
 import {
   ArrowLeft,
-  Share2,
   MessageSquare,
   UserRound,
-  BookOpen,
-  Copy,
-  Facebook,
-  X,
   ChevronDown,
+  MoreVertical, 
+  Pencil, 
+  Trash2
 } from "lucide-react";
 import { LikeButton } from "@/components/LikeButton";
-import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -55,7 +53,9 @@ type PostType = {
   commentCount: number;
   comments: CommentType[];
   isLiked: boolean;
+  isSaved: boolean;
 };
+
 
 const backendURL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000";
 
@@ -64,12 +64,14 @@ const PostPage = () => {
   const router = useRouter();
   const { id } = params; // id поста из URL
   const { data: session } = useSession();
-  const { toast } = useToast();
+  
 
+  // Для информации о посте (а также для проверки автора, если потребуется)
   const [post, setPost] = useState<PostType | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [newComment, setNewComment] = useState<string>("");
   const [showAuthMessage, setShowAuthMessage] = useState<boolean>(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     if (!id) return;
@@ -93,6 +95,9 @@ const PostPage = () => {
 
     fetchPost();
   }, [id]);
+
+  // Определяем, является ли текущий пользователь автором поста
+  const isAuthor = session && post && session.user.username === post.author.username;
 
   const handleSubmitComment = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -141,60 +146,6 @@ const PostPage = () => {
     }
   };
 
-  // Функция копирования ссылки
-  const handleCopyLink = async () => {
-    const postUrl = window.location.href;
-    try {
-      await navigator.clipboard.writeText(postUrl);
-      console.log("Ссылка скопирована в буфер обмена");
-    } catch (error) {
-      console.error("Ошибка при копировании ссылки:", error);
-    }
-  };
-
-  // Функция нативного шаринга
-  const handleNativeShare = async () => {
-    const postUrl = window.location.href;
-    try {
-      await navigator.share({
-        title: post?.title,
-        text: post?.title,
-        url: postUrl,
-      });
-    } catch (error) {
-      console.error("Ошибка при попытке поделиться:", error);
-    }
-  };
-
-  // Функция для шаринга на выбранной платформе
-  const handleSharePlatform = (platform: string) => {
-    const postUrl = window.location.href;
-    let shareUrl = "";
-
-    switch (platform) {
-      case "telegram":
-        shareUrl = `https://t.me/share/url?url=${encodeURIComponent(
-          postUrl
-        )}&text=${encodeURIComponent(post?.title || "")}`;
-        break;
-      case "facebook":
-        shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
-          postUrl
-        )}`;
-        break;
-      case "x":
-        shareUrl = `https://x.com/intent/tweet?url=${encodeURIComponent(
-          postUrl
-        )}&text=${encodeURIComponent(post?.title || "")}`;
-        break;
-      default:
-        return;
-    }
-
-    window.open(shareUrl, "_blank", "width=600,height=400");
-  };
-
-  // Функция удаления комментария
   const handleDeleteComment = async (commentId: string) => {
     try {
       const response = await fetch(`${backendURL}/api/comment-delete?id=${commentId}`, {
@@ -209,7 +160,6 @@ const PostPage = () => {
         throw new Error(data.error || "Ошибка при удалении комментария");
       }
 
-      // Обновляем состояние, убираем удалённый комментарий
       setPost((prev) =>
         prev
           ? {
@@ -227,6 +177,39 @@ const PostPage = () => {
     } catch (error: unknown) {
       console.error("Ошибка при удалении комментария:", error);
       let message = "Ошибка при удалении комментария";
+      if (error instanceof Error) {
+        message = error.message;
+      }
+      toast({
+        description: message,
+        duration: 2000,
+      });
+    }
+  };
+
+  // Функция для редактирования поста
+  const handleEditPost = () => {
+    router.push(`/edit-draft/${post?.id}`);
+  };
+
+  // Функция для удаления поста
+  const handleDeletePost = async () => {
+    try {
+      const response = await fetch(`${backendURL}/api/delete-post?id=${post?.id}`, {
+        method: "DELETE", // или "POST", в зависимости от реализации бэкенда
+        credentials: "include",
+      });
+      if (!response.ok) {
+        throw new Error("Ошибка при удалении поста");
+      }
+      toast({
+        description: "Пост удален",
+        duration: 2000,
+      });
+      router.push("/posts");
+    } catch (error: unknown) {
+      console.error(error);
+      let message = "Ошибка при удалении поста";
       if (error instanceof Error) {
         message = error.message;
       }
@@ -300,74 +283,36 @@ const PostPage = () => {
                     initialLiked={post.isLiked}
                     initialCount={post.likeCount}
                   />
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="icon" className="h-8 w-8">
-                        <Share2 className="w-4 h-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent
-                      align="end"
-                      className="w-[300px] backdrop-blur-md bg-background/95 border-white/10"
-                      sideOffset={5}
-                      style={{ zIndex: 1000 }}
-                    >
-                      <div className="px-3 py-2 text-sm">
-                        <p className="text-muted-foreground mb-2">
-                          Ссылка на пост:
-                        </p>
-                        <div className="flex gap-2 mb-2">
-                          <Input
-                            value={window.location.href}
-                            readOnly
-                            className="h-8 text-xs bg-black/20 border-white/10"
-                          />
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={handleCopyLink}
-                            className="h-8 px-2"
-                          >
-                            <Copy className="w-3 h-3" />
-                          </Button>
-                        </div>
-                      </div>
-                      {typeof navigator.share === "function" && (
-                        <DropdownMenuItem onClick={handleNativeShare}>
-                          <Share2 className="w-4 h-4 mr-2" />
-                          <span>Поделиться</span>
-                        </DropdownMenuItem>
-                      )}
-                      <DropdownMenuItem
-                        onClick={() => handleSharePlatform("telegram")}
-                      >
-                        <svg
-                          className="w-4 h-4 mr-2"
-                          viewBox="0 0 24 24"
-                          fill="currentColor"
-                          xmlns="http://www.w3.org/2000/svg"
+                  <SavePostButton postId={post.id} isSavedInitial={post.isSaved} />
+                  {isAuthor && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-primary"
                         >
-                          <path d="M12 0C5.37 0 0 5.37 0 12s5.37 12 12 12 12-5.37 12-12S18.63 0 12 0zm5.43 7.13l-1.84 8.66c-.14.63-.5.79-1.02.49l-2.82-2.08-1.36 1.31c-.15.15-.28.28-.57.28l.2-2.86 5.2-4.71c.23-.2-.05-.31-.35-.12l-6.42 4.04-2.77-.87c-.6-.19-.61-.6.13-.89l10.82-4.17c.5-.18.94.12.8.92z" />
-                        </svg>
-                        <span>Telegram</span>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => handleSharePlatform("facebook")}
+                          <MoreVertical className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent
+                        align="end"
+                        className="w-[160px] backdrop-blur-md bg-black/90 border-white/10"
                       >
-                        <Facebook className="w-4 h-4 mr-2" />
-                        <span>Facebook</span>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => handleSharePlatform("x")}
-                      >
-                        <X className="w-4 h-4 mr-2" />
-                        <span>X (Twitter)</span>
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                  <Button variant="outline" size="icon" className="h-8 w-8">
-                    <BookOpen className="w-5 h-5 group-hover:text-primary transition-colors" />
-                  </Button>
+                        <DropdownMenuItem className="gap-2" onClick={handleEditPost}>
+                          <Pencil className="w-4 h-4" />
+                          Редактировать
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="gap-2 text-red-500 focus:text-red-500"
+                          onClick={handleDeletePost}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Удалить
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
                 </div>
               </div>
             </CardHeader>
@@ -378,12 +323,7 @@ const PostPage = () => {
               />
               <div className="flex flex-wrap gap-2 mt-6">
                 {post.postTags.map((pt, index) => (
-                  <Button
-                    key={index}
-                    variant="secondary"
-                    size="sm"
-                    className="text-xs"
-                  >
+                  <Button key={index} variant="secondary" size="sm" className="text-xs">
                     #{pt.tag.name}
                   </Button>
                 ))}
@@ -422,10 +362,7 @@ const PostPage = () => {
             {/* Список комментариев */}
             <div className="mt-4 space-y-4">
               {post.comments.map((comment) => (
-                <Card
-                  key={comment.id}
-                  className="backdrop-blur-sm bg-black/20 border-white/5"
-                >
+                <Card key={comment.id} className="backdrop-blur-sm bg-black/20 border-white/5">
                   <CardContent className="flex items-start gap-4 p-4">
                     <Avatar>
                       <AvatarImage src={comment.author.avatar} />
@@ -435,9 +372,7 @@ const PostPage = () => {
                     </Avatar>
                     <div className="flex-1">
                       <div className="flex justify-between items-start">
-                        <p className="font-medium text-foreground">
-                          {comment.author.name}
-                        </p>
+                        <p className="font-medium text-foreground">{comment.author.name}</p>
                         <div className="flex items-center gap-2 pr-4">
                           <span className="text-sm text-muted-foreground">
                             {new Date(comment.createdAt).toLocaleString("ru-RU", {
@@ -448,8 +383,6 @@ const PostPage = () => {
                               minute: "2-digit",
                             })}
                           </span>
-                          {/* Кнопка удаления комментария – отображается, если пользователь является автором комментария 
-                              или автором поста */}
                           {session &&
                             (session.user.username === comment.author.username ||
                               session.user.username === post.author.username) && (
@@ -471,22 +404,7 @@ const PostPage = () => {
                                     onClick={() => handleDeleteComment(comment.id)}
                                     className="text-red-500 focus:text-red-500"
                                   >
-                                    <svg
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      width="15"
-                                      height="15"
-                                      viewBox="0 0 24 24"
-                                      fill="none"
-                                      stroke="currentColor"
-                                      strokeWidth="2"
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      className="mr-2"
-                                    >
-                                      <path d="M3 6h18" />
-                                      <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-                                      <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-                                    </svg>
+                                    <Trash2 className="w-4 h-4 mr-2" />
                                     Удалить
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>
@@ -494,9 +412,7 @@ const PostPage = () => {
                             )}
                         </div>
                       </div>
-                      <p className="text-sm text-muted-foreground/90 mt-1">
-                        {comment.content}
-                      </p>
+                      <p className="text-sm text-muted-foreground/90 mt-1">{comment.content}</p>
                     </div>
                   </CardContent>
                 </Card>

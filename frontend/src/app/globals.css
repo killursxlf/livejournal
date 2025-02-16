@@ -107,7 +107,6 @@ h1, h2, h3, h4, h5, h6 {
 
 .EasyMDEContainer {
   background-color: hsl(var(--muted));
-  border: 1px solid #1a1f2c;
 }
 
 .EasyMDEContainer .CodeMirror {
@@ -117,7 +116,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .EasyMDEContainer .editor-toolbar {
-  border: 1px solid #1a1f2c;
+  border: none;
   border-bottom: 1px solid hsl(var(--border));
   background-color: hsl(var(--muted));
   opacity: 1;
@@ -142,12 +141,10 @@ h1, h2, h3, h4, h5, h6 {
 .EasyMDEContainer .editor-preview-side {
   background-color: hsl(var(--muted));
   color: hsl(var(--foreground));
-  border: 1px solid #1a1f2c;
 }
 
 .EasyMDEContainer .editor-preview-side {
   border-left: 1px solid hsl(var(--border));
-  border: 1px solid #1a1f2c;
 }
 
 .EasyMDEContainer .editor-statusbar {
@@ -205,11 +202,4 @@ h1, h2, h3, h4, h5, h6 {
 
 .EasyMDEContainer .cm-s-easymde .cm-link {
   color: hsl(var(--primary));
-}
-
-.EasyMDEContainer .CodeMirror,
-.EasyMDEContainer .CodeMirror-code {
-  direction: ltr !important;
-  unicode-bidi: embed !important;
-  text-align: left !important;
 }

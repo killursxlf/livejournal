@@ -1,26 +1,84 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import TitleInput from "@/components/TitleInput";
 import TagsInput from "@/components/TagsInput";
-import Editor from "@/components/Editor";
+import "easymde/dist/easymde.min.css";
 import Sidebar from "@/components/Sidebar";
 import BackButton from "@/components/BackButton";
+import EasyMDE from "easymde";
+import { useToast } from "@/components/ui/use-toast";
+
+const backendURL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000";
 
 export default function EditPost() {
-  // Получаем данные сессии (например, email пользователя)
   const { data: session } = useSession();
+  const router = useRouter();
 
-  // Состояния для всех полей формы
   const [title, setTitle] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [content, setContent] = useState("");
-  const [postType, setPostType] = useState("Article"); // "Article", "News", "Review" и т.д.
+  const [postType, setPostType] = useState("Article");
   const [publishDate, setPublishDate] = useState("");
   const [publishTime, setPublishTime] = useState("");
 
-  const backendURL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000";
+  const editorRef = useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    let easyMDE: EasyMDE | null = null;
+    (async () => {
+      const { default: EasyMDE } = await import("easymde");
+      if (editorRef.current) {
+        easyMDE = new EasyMDE({
+          element: editorRef.current.querySelector("textarea")!,
+          spellChecker: false,
+          autofocus: true,
+          placeholder: "Start writing your post...",
+          toolbar: [
+            "bold",
+            "italic",
+            "heading",
+            "|",
+            "quote",
+            "unordered-list",
+            "ordered-list",
+            "|",
+            "link",
+            "image",
+            "|",
+            "preview",
+            "side-by-side",
+            "fullscreen",
+            "|",
+            "guide",
+          ],
+          minHeight: "300px",
+        });
+
+        // При изменении содержимого редактора обновляем состояние content
+        easyMDE.codemirror.on("change", () => {
+          setContent(easyMDE!.value());
+        });
+  
+        // Применение кастомных стилей после инициализации EasyMDE
+        const cmElement = editorRef.current.querySelector(".CodeMirror") as HTMLElement;
+        if (cmElement) {
+          cmElement.style.backgroundColor = "hsl(var(--muted))";
+          cmElement.style.color = "hsl(var(--foreground))";
+        }
+      }
+    })();
+
+    return () => {
+      if (easyMDE) {
+        easyMDE.toTextArea();
+        easyMDE.cleanup();
+      }
+    };
+  }, []);
 
   const submitPost = async (status: "PUBLISHED" | "DRAFT") => {
     const publicationTypeMapping: Record<string, string> = {
@@ -32,11 +90,11 @@ export default function EditPost() {
     const payload = {
       title,
       content,
-      email: session?.user?.email, // email из сессии
+      email: session?.user?.email,
       tags,
-      status, // статус зависит от нажатой кнопки
+      status,
       publicationType: publicationTypeMapping[postType],
-      publishDate, // если пустая строка – на бекенде установится текущее время, если статус не DRAFT
+      publishDate,
       publishTime,
     };
 
@@ -51,7 +109,11 @@ export default function EditPost() {
       const data = await res.json();
       if (res.ok) {
         console.log("Пост успешно создан:", data);
-        // Можно сделать редирект или показать уведомление
+        toast({
+          description: "Пост успешно создан",
+          duration: 3000,
+        });
+        router.push("/posts");
       } else {
         console.error("Ошибка создания поста:", data.error);
       }
@@ -60,12 +122,10 @@ export default function EditPost() {
     }
   };
 
-  // Обработчик для кнопки публикации
   const handlePublish = () => {
     submitPost("PUBLISHED");
   };
 
-  // Обработчик для кнопки сохранения черновика
   const handleSaveDraft = () => {
     submitPost("DRAFT");
   };
@@ -77,10 +137,15 @@ export default function EditPost() {
           <div className="w-16 flex-shrink-0">
             <BackButton />
           </div>
-          <div className="flex-grow space-y-6">
-            <TitleInput value={title} onChange={(e) => setTitle(e.target.value)} />
+          <div className="flex-grow space-y-6 animate-fade-up">
+            <TitleInput
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+            />
             <TagsInput value={tags} onChange={setTags} />
-            <Editor value={content} onChange={setContent} />
+            <div ref={editorRef} className="w-full bg-muted rounded-lg overflow-hidden">
+              <textarea className="w-full" />
+            </div>
           </div>
           <Sidebar
             postType={postType}

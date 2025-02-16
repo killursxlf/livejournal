@@ -82,6 +82,9 @@ export async function getUser(req: Request): Promise<Response> {
         )
       : false;
 
+    // Определяем, является ли запрос владельцем профиля
+    const isOwner = currentUserId && currentUserId === user.id;
+
     // Функция для маппинга поста в нужный формат
     const mapPost = (post: any) => {
       const author = post.author || {
@@ -95,6 +98,7 @@ export async function getUser(req: Request): Promise<Response> {
         title: post.title,
         content: post.content,
         createdAt: post.createdAt,
+        publishAt: post.publishAt, // передаём дату публикации
         author: {
           username: author.username,
           name: author.name,
@@ -117,7 +121,7 @@ export async function getUser(req: Request): Promise<Response> {
         })),
       };
 
-      if (currentUserId) {
+      if (isOwner && currentUserId) {
         return {
           ...basePost,
           isLiked: post.likes.some(
@@ -126,23 +130,28 @@ export async function getUser(req: Request): Promise<Response> {
           isSaved: post.savedBy.some(
             (saved: { userId: string }) => saved.userId === currentUserId
           ),
-          // Если владелец делает запрос, добавляем статус
-          ...(currentUserId === user.id && { status: post.status }),
+          // Для владельца добавляем статус поста
+          status: post.status,
         };
       }
       return basePost;
     };
 
-
+    // Для постов владельца возвращаем ВСЕ, иначе только те, где статус PUBLISHED и publishAt наступил
+    const now = new Date();
     const createdPosts = user.posts
-      ? (currentUserId && currentUserId === user.id
+      ? (isOwner
           ? user.posts
-          : user.posts.filter((post) => post.status !== "DRAFT")
+          : user.posts.filter(
+              (post) =>
+                post.status === "PUBLISHED" &&
+                post.publishAt &&
+                new Date(post.publishAt) <= now
+            )
         ).map(mapPost)
       : [];
 
-
-    // Получаем посты, которые пользователь лайкнул
+    // Получаем посты, которые пользователь лайкнул (возвращаем все, без дополнительной фильтрации)
     const likedPostsData = await prisma.post.findMany({
       where: {
         likes: {
@@ -165,7 +174,7 @@ export async function getUser(req: Request): Promise<Response> {
     });
     const likedPosts = likedPostsData.map(mapPost);
 
-    // Получаем посты, которые пользователь сохранил
+    // Получаем посты, которые пользователь сохранил (возвращаем все)
     const savedPostsData = await prisma.post.findMany({
       where: {
         savedBy: {
@@ -190,7 +199,7 @@ export async function getUser(req: Request): Promise<Response> {
 
     // Если текущий пользователь совпадает с владельцем профиля, выбираем черновики (status: DRAFT)
     let draftPosts: any[] = [];
-    if (currentUserId && currentUserId === user.id) {
+    if (isOwner && currentUserId) {
       const draftPostsData = await prisma.post.findMany({
         where: {
           authorId: user.id,

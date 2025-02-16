@@ -7,7 +7,7 @@ export async function getAllPosts(req: Request): Promise<Response> {
     const url = new URL(req.url);
     const userId = url.searchParams.get("userId");
     const tag = url.searchParams.get("tag"); // фильтр по тегу
-    const sortParam = url.searchParams.get("sort"); // сортировка: например, "popular" или "latest"
+    const sortParam = url.searchParams.get("sort"); // сортировка: "popular" или "latest"
     const subscriptions = url.searchParams.get("subscriptions"); // фильтр подписок
 
     // Строим условие where
@@ -21,9 +21,8 @@ export async function getAllPosts(req: Request): Promise<Response> {
       };
     }
 
-    // Если включен фильтр подписок и передан userId, то выбираем посты только от авторов,
-    // на которых подписан текущий пользователь. Для этого проверяем наличие записи в связи followers
-    // у автора, где followerId совпадает с userId.
+    // Если включен фильтр подписок и передан userId, выбираем посты только от авторов,
+    // на которых подписан текущий пользователь
     if (subscriptions === "true" && userId) {
       whereClause.author = {
         followers: {
@@ -34,15 +33,19 @@ export async function getAllPosts(req: Request): Promise<Response> {
       };
     }
 
+    // Добавляем условие: исключаем посты со статусом DRAFT и возвращаем только посты, у которых publishAt <= сейчас
+    whereClause.AND = [
+      { status: { not: "DRAFT" } },
+      { publishAt: { lte: new Date() } },
+    ];
+
     // Строим условие сортировки orderBy
     let orderByClause: any = {};
     if (sortParam === "popular") {
-      // Сортировка по количеству лайков (используем возможность сортировки по _count)
       orderByClause = {
         likes: { _count: "desc" },
       };
     } else {
-      // По умолчанию – сортировка по дате создания (от новых к старым)
       orderByClause = {
         createdAt: "desc",
       };
@@ -64,12 +67,11 @@ export async function getAllPosts(req: Request): Promise<Response> {
             },
           },
         },
-        // Включаем связь сохранённых постов
         savedBy: true,
       },
     });
 
-    // Если параметр sort не указан, можно выполнить случайную сортировку (как вариант)
+    // Если параметр sort не указан, можно выполнить случайную сортировку
     if (!sortParam) {
       posts.sort(() => Math.random() - 0.5);
     }
@@ -108,7 +110,6 @@ export async function getAllPosts(req: Request): Promise<Response> {
           isLiked: post.likes.some(
             (like: { userId: string }) => like.userId === userId
           ),
-          // Проверяем, есть ли запись в savedBy с данным userId
           isSaved: post.savedBy.some(
             (saved: { userId: string }) => saved.userId === userId
           ),
@@ -429,6 +430,10 @@ export async function updateDraft(req: Request): Promise<Response> {
       const timeStr = publishTime ? publishTime : "00:00:00";
       publishAt = new Date(`${publishDate}T${timeStr}`);
     }
+    // Если статус "PUBLISHED" и дата не передана, устанавливаем publishAt на текущую дату
+    if (status === "PUBLISHED" && !publishAt) {
+      publishAt = new Date();
+    }
 
     // Обратный мэппинг для преобразования значения publicationType из UI в значение для БД
     const publicationTypeMapping: Record<string, string> = {
@@ -443,8 +448,10 @@ export async function updateDraft(req: Request): Promise<Response> {
       data: {
         title,
         content,
-        publicationType: publicationTypeMapping[publicationType as keyof typeof publicationTypeMapping] || publicationType,
-        publishAt: publishAt,
+        publicationType:
+          publicationTypeMapping[publicationType as keyof typeof publicationTypeMapping] ||
+          publicationType,
+        publishAt,
         status, // обновляем статус поста
         // Если нужно обновить теги, удаляем старые и создаём новые записи
         postTags: {
@@ -480,5 +487,101 @@ export async function updateDraft(req: Request): Promise<Response> {
       status: 500,
       headers: { "Content-Type": "application/json", ...corsHeaders() },
     });
+  }
+}
+
+export async function deletePost(req: Request): Promise<Response> {
+  try {
+    // Проверяем токен
+    const tokenData = await verifyToken(req);
+    const currentUserId = tokenData?.user?.id || tokenData?.sub || null;
+    if (!currentUserId) {
+      return new Response(
+        JSON.stringify({ error: "Не авторизован" }),
+        {
+          status: 401,
+          headers: { "Content-Type": "application/json", ...corsHeaders() },
+        }
+      );
+    }
+
+    // Извлекаем postId из URL
+    const url = new URL(req.url);
+    const postId = url.searchParams.get("id");
+    if (!postId) {
+      return new Response(
+        JSON.stringify({ error: "Отсутствует идентификатор поста" }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json", ...corsHeaders() },
+        }
+      );
+    }
+
+    // Находим пост
+    const existingPost = await prisma.post.findUnique({
+      where: { id: postId },
+    });
+    if (!existingPost) {
+      return new Response(
+        JSON.stringify({ error: "Пост не найден" }),
+        {
+          status: 404,
+          headers: { "Content-Type": "application/json", ...corsHeaders() },
+        }
+      );
+    }
+
+    // Проверяем, что автор поста совпадает с текущим пользователем
+    if (existingPost.authorId !== currentUserId) {
+      return new Response(
+        JSON.stringify({ error: "Доступ запрещён" }),
+        {
+          status: 403,
+          headers: { "Content-Type": "application/json", ...corsHeaders() },
+        }
+      );
+    }
+
+    // Удаляем связанные записи:
+    await prisma.postTag.deleteMany({
+      where: { postId },
+    });
+    await prisma.like.deleteMany({
+      where: { postId },
+    });
+    await prisma.comment.deleteMany({
+      where: { postId },
+    });
+    // Если у вас используется модель для сохраненных постов
+    await prisma.savedPost.deleteMany({
+      where: { postId },
+    });
+    // Удаляем версии поста
+    await prisma.postVersion.deleteMany({
+      where: { postId },
+    });
+
+    // Удаляем сам пост
+    await prisma.post.delete({
+      where: { id: postId },
+    });
+
+    return new Response(
+      JSON.stringify({ message: "Пост успешно удален" }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json", ...corsHeaders() },
+      }
+    );
+  } catch (error) {
+    console.error("Ошибка при удалении поста:", error);
+    return new Response(
+      JSON.stringify({ error: "Ошибка сервера" }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json", ...corsHeaders() },
+      }
+    );
   }
 }
