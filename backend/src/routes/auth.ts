@@ -5,13 +5,12 @@ import jwt from "jsonwebtoken";
 import { getToken } from "next-auth/jwt";
 
 const JWT_SECRET = process.env.JWT_SECRET!;
-const JWT_EXPIRATION = "7d"; // Токен на 7 дней
+const JWT_EXPIRATION = "7d";
 
 export async function register(req: Request) {
   try {
     const { email, name = "", username, password } = await req.json();
 
-    // Проверяем, существует ли пользователь
     const existingUser = await prisma.user.findFirst({
       where: { OR: [{ email }, { username }] },
     });
@@ -23,15 +22,12 @@ export async function register(req: Request) {
       });
     }
 
-    // Хешируем пароль
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Создаём пользователя
     const newUser = await prisma.user.create({
       data: { email, name, username, password: hashedPassword },
     });
 
-    // Генерируем JWT токен
     const token = jwt.sign({ id: newUser.id, email: newUser.email }, JWT_SECRET, {
       expiresIn: JWT_EXPIRATION,
     });
@@ -52,7 +48,6 @@ export async function login(req: Request) {
   try {
     const { identifier, password } = await req.json();
 
-    // Проверка пользователя: ищем по email или username
     const user = await prisma.user.findFirst({
       where: {
         OR: [
@@ -65,20 +60,18 @@ export async function login(req: Request) {
     if (!user || !user.password) {
       return new Response(
         JSON.stringify({ error: "Неверные данные" }),
-        { status: 401 },
+        { status: 401 }
       );
     }
 
-    // Проверка пароля
     const isValid = await bcrypt.compare(password, user.password);
     if (!isValid) {
       return new Response(
         JSON.stringify({ error: "Неверный пароль" }),
-        { status: 401 },
+        { status: 401 }
       );
     }
 
-    // Генерация JWT
     if (!process.env.JWT_SECRET) {
       throw new Error("JWT_SECRET не найден в .env");
     }
@@ -86,10 +79,9 @@ export async function login(req: Request) {
     const token = jwt.sign(
       { id: user.id, email: user.email },
       process.env.JWT_SECRET,
-      { expiresIn: "7d" },
+      { expiresIn: "7d" }
     );
 
-    // ✅ Возвращаем JSON без Set-Cookie (пусть NextAuth управляет кукой)
     return new Response(
       JSON.stringify({
         token,
@@ -110,11 +102,10 @@ export async function login(req: Request) {
     console.error("Ошибка логина:", err);
     return new Response(
       JSON.stringify({ error: "Ошибка сервера" }),
-      { status: 500 },
+      { status: 500 }
     );
   }
 }
-
 
 function parseCookies(req: Request): { [key: string]: string } {
   const cookieHeader = req.headers.get("cookie") || "";
@@ -128,14 +119,10 @@ function parseCookies(req: Request): { [key: string]: string } {
 }
 
 export async function verifyToken(req: Request): Promise<any | null> {
-  // Извлекаем куки из заголовка
   const cookies = parseCookies(req);
-  // Создаем объект, который имитирует NextRequest, содержащий поле cookies
   const pseudoNextRequest = {
     cookies,
   };
-  
-  // Вызываем getToken, передавая созданный объект и секрет
   const token = await getToken({ req: pseudoNextRequest as any, secret: process.env.NEXTAUTH_SECRET });
   return token;
 }
@@ -191,13 +178,12 @@ export async function checkGoogleUser(req: Request) {
       });
     }
 
-
     const newUser = await prisma.user.create({
       data: {
         email,
         name,
-        username: "", 
-        password: "", 
+        username: "",
+        password: "",
       },
     });
 

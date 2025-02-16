@@ -6,14 +6,12 @@ export async function getAllPosts(req: Request): Promise<Response> {
   try {
     const url = new URL(req.url);
     const userId = url.searchParams.get("userId");
-    const tag = url.searchParams.get("tag"); // фильтр по тегу
-    const sortParam = url.searchParams.get("sort"); // сортировка: "popular" или "latest"
-    const subscriptions = url.searchParams.get("subscriptions"); // фильтр подписок
+    const tag = url.searchParams.get("tag"); 
+    const sortParam = url.searchParams.get("sort"); 
+    const subscriptions = url.searchParams.get("subscriptions"); 
 
-    // Строим условие where
     const whereClause: any = {};
     if (tag) {
-      // Фильтруем посты, у которых в связи postTags есть тег с указанным именем
       whereClause.postTags = {
         some: {
           tag: { name: tag },
@@ -21,8 +19,6 @@ export async function getAllPosts(req: Request): Promise<Response> {
       };
     }
 
-    // Если включен фильтр подписок и передан userId, выбираем посты только от авторов,
-    // на которых подписан текущий пользователь
     if (subscriptions === "true" && userId) {
       whereClause.author = {
         followers: {
@@ -33,13 +29,11 @@ export async function getAllPosts(req: Request): Promise<Response> {
       };
     }
 
-    // Добавляем условие: исключаем посты со статусом DRAFT и возвращаем только посты, у которых publishAt <= сейчас
     whereClause.AND = [
       { status: { not: "DRAFT" } },
       { publishAt: { lte: new Date() } },
     ];
 
-    // Строим условие сортировки orderBy
     let orderByClause: any = {};
     if (sortParam === "popular") {
       orderByClause = {
@@ -71,7 +65,6 @@ export async function getAllPosts(req: Request): Promise<Response> {
       },
     });
 
-    // Если параметр sort не указан, можно выполнить случайную сортировку
     if (!sortParam) {
       posts.sort(() => Math.random() - 0.5);
     }
@@ -148,13 +141,11 @@ export async function getPost(req: Request): Promise<Response> {
       });
     }
 
-    // Проверяем токен из куки
     const tokenData = await verifyToken(req);
     console.log("Данные токена:", tokenData);
     const currentUserId: string | null = tokenData?.id || null;
     console.log("currentUserId:", currentUserId);
 
-    // Находим пост с учетом всех отношений, включая версии
     const post = await prisma.post.findUnique({
       where: { id: postId },
       include: {
@@ -184,7 +175,6 @@ export async function getPost(req: Request): Promise<Response> {
       });
     }
 
-    // Если пост является черновиком, разрешаем доступ только автору
     if (post.status === "DRAFT" && post.author.id !== currentUserId) {
       console.warn(
         `Доступ к черновику запрещён. post.author.id: ${post.author.id}, currentUserId: ${currentUserId}`
@@ -195,7 +185,6 @@ export async function getPost(req: Request): Promise<Response> {
       });
     }
 
-    // Проверяем, поставил ли текущий пользователь лайк или сохранил пост
     const isLiked = currentUserId
       ? post.likes.some((like) => like.userId === currentUserId)
       : false;
@@ -203,7 +192,6 @@ export async function getPost(req: Request): Promise<Response> {
       ? post.savedBy.some((saved) => saved.userId === currentUserId)
       : false;
 
-    // Включаем версии поста только если запрашивает автор
     const postVersions =
       currentUserId && post.author.id === currentUserId
         ? post.postVersions.map((version) => ({
@@ -215,7 +203,6 @@ export async function getPost(req: Request): Promise<Response> {
           }))
         : [];
 
-    // Формируем объект с актуальными данными поста согласно текущей схеме
     const postWithExtraFields = {
       id: post.id,
       title: post.title,
@@ -246,7 +233,7 @@ export async function getPost(req: Request): Promise<Response> {
       })),
       isLiked,
       isSaved,
-      postVersions, // версии включаются только для автора
+      postVersions, 
     };
 
     console.log("Формируемый объект поста для клиента:", postWithExtraFields);
@@ -266,7 +253,6 @@ export async function getPost(req: Request): Promise<Response> {
 
 export async function createPost(req: Request) {
   try {
-    // Извлекаем данные токена
     const tokenData = await verifyToken(req);
     const tokenEmail = tokenData?.user?.email || tokenData?.email;
     if (!tokenEmail) {
@@ -281,10 +267,10 @@ export async function createPost(req: Request) {
       content,
       email,
       tags,
-      status,           // Ожидается, например, "DRAFT" или "PUBLISHED"
-      publicationType,  // Ожидается, например, "ARTICLE", "NEWS" или "REVIEW"
-      publishDate,      // Ожидается в формате YYYY-MM-DD (опционально)
-      publishTime,      // Ожидается в формате HH:MM (опционально)
+      status,           
+      publicationType,  
+      publishDate,     
+      publishTime,      
     } = await req.json();
 
     if (!title || !content || !email) {
@@ -294,7 +280,6 @@ export async function createPost(req: Request) {
       );
     }
 
-    // Проверяем, что email из запроса совпадает с email из токена
     if (email !== tokenEmail) {
       return new Response(
         JSON.stringify({ error: "Доступ запрещён" }),
@@ -302,7 +287,6 @@ export async function createPost(req: Request) {
       );
     }
 
-    // Находим пользователя по email
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
       return new Response(
@@ -320,18 +304,13 @@ export async function createPost(req: Request) {
       },
     }));
 
-    // Определяем окончательный статус поста
     const finalStatus = status || "DRAFT";
 
-    // Формируем дату публикации
     let publishAt: Date | undefined;
     if (publishDate) {
-      // Если время не указано, используем 00:00
       const timeStr = publishTime ? publishTime : "00:00";
       publishAt = new Date(`${publishDate}T${timeStr}:00`);
     } else if (finalStatus !== "DRAFT") {
-      // Если publishDate не передан, а пост не является черновиком,
-      // то публикация должна быть мгновенной
       publishAt = new Date();
     }
 
@@ -365,7 +344,6 @@ export async function createPost(req: Request) {
 
 export async function updateDraft(req: Request): Promise<Response> {
   try {
-    // Проверяем токен из куки
     const tokenData = await verifyToken(req);
     const currentUserId: string | null =
       tokenData?.user?.id || tokenData?.id || tokenData?.sub || null;
@@ -376,16 +354,15 @@ export async function updateDraft(req: Request): Promise<Response> {
       });
     }
 
-    // Получаем данные из запроса. Теперь ожидаем поле status.
     const {
       id,
       title,
       content,
-      tags, // предполагается, что теги приходят как массив строк
+      tags, 
       publicationType,
       publishDate,
       publishTime,
-      status, // новый статус, например "DRAFT" или "PUBLISHED"
+      status, 
     } = await req.json();
 
     if (!id) {
@@ -395,7 +372,6 @@ export async function updateDraft(req: Request): Promise<Response> {
       });
     }
 
-    // Находим существующий пост
     const existingPost = await prisma.post.findUnique({
       where: { id },
     });
@@ -406,7 +382,7 @@ export async function updateDraft(req: Request): Promise<Response> {
       });
     }
 
-    // Проверяем, что автор поста соответствует текущему пользователю
+
     if (existingPost.authorId !== currentUserId) {
       return new Response(JSON.stringify({ error: "Доступ запрещён" }), {
         status: 403,
@@ -414,7 +390,6 @@ export async function updateDraft(req: Request): Promise<Response> {
       });
     }
 
-    // Сохраняем старую версию поста в таблицу postVersions
     await prisma.postVersion.create({
       data: {
         postId: existingPost.id,
@@ -424,25 +399,21 @@ export async function updateDraft(req: Request): Promise<Response> {
       },
     });
 
-    // Формируем дату публикации, если переданы publishDate и publishTime
     let publishAt: Date | undefined;
     if (publishDate) {
       const timeStr = publishTime ? publishTime : "00:00:00";
       publishAt = new Date(`${publishDate}T${timeStr}`);
     }
-    // Если статус "PUBLISHED" и дата не передана, устанавливаем publishAt на текущую дату
     if (status === "PUBLISHED" && !publishAt) {
       publishAt = new Date();
     }
 
-    // Обратный мэппинг для преобразования значения publicationType из UI в значение для БД
     const publicationTypeMapping: Record<string, string> = {
       "Article": "ARTICLE",
       "News": "NEWS",
       "Review": "REVIEW",
     };
 
-    // Обновляем пост с новыми данными, включая новый статус
     const updatedPost = await prisma.post.update({
       where: { id },
       data: {
@@ -452,8 +423,7 @@ export async function updateDraft(req: Request): Promise<Response> {
           publicationTypeMapping[publicationType as keyof typeof publicationTypeMapping] ||
           publicationType,
         publishAt,
-        status, // обновляем статус поста
-        // Если нужно обновить теги, удаляем старые и создаём новые записи
+        status, 
         postTags: {
           deleteMany: {},
           create: tags.map((tagName: string) => ({
@@ -492,7 +462,6 @@ export async function updateDraft(req: Request): Promise<Response> {
 
 export async function deletePost(req: Request): Promise<Response> {
   try {
-    // Проверяем токен
     const tokenData = await verifyToken(req);
     const currentUserId = tokenData?.user?.id || tokenData?.sub || null;
     if (!currentUserId) {
@@ -505,7 +474,6 @@ export async function deletePost(req: Request): Promise<Response> {
       );
     }
 
-    // Извлекаем postId из URL
     const url = new URL(req.url);
     const postId = url.searchParams.get("id");
     if (!postId) {
@@ -518,7 +486,6 @@ export async function deletePost(req: Request): Promise<Response> {
       );
     }
 
-    // Находим пост
     const existingPost = await prisma.post.findUnique({
       where: { id: postId },
     });
@@ -532,7 +499,6 @@ export async function deletePost(req: Request): Promise<Response> {
       );
     }
 
-    // Проверяем, что автор поста совпадает с текущим пользователем
     if (existingPost.authorId !== currentUserId) {
       return new Response(
         JSON.stringify({ error: "Доступ запрещён" }),
@@ -543,7 +509,6 @@ export async function deletePost(req: Request): Promise<Response> {
       );
     }
 
-    // Удаляем связанные записи:
     await prisma.postTag.deleteMany({
       where: { postId },
     });
@@ -553,16 +518,16 @@ export async function deletePost(req: Request): Promise<Response> {
     await prisma.comment.deleteMany({
       where: { postId },
     });
-    // Если у вас используется модель для сохраненных постов
+
     await prisma.savedPost.deleteMany({
       where: { postId },
     });
-    // Удаляем версии поста
+
     await prisma.postVersion.deleteMany({
       where: { postId },
     });
 
-    // Удаляем сам пост
+
     await prisma.post.delete({
       where: { id: postId },
     });

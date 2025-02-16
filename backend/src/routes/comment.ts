@@ -17,7 +17,6 @@ export async function addComment(req: Request): Promise<Response> {
       );
     }
 
-    // Извлекаем данные из тела запроса
     const { content, postId, userId } = await req.json();
     console.log("Request body in addComment:", { content, postId, userId });
 
@@ -28,7 +27,6 @@ export async function addComment(req: Request): Promise<Response> {
       );
     }
 
-    // Проверяем, что userId из запроса совпадает с идентификатором из токена
     if (userId !== tokenUserId) {
       return new Response(
         JSON.stringify({ error: "Доступ запрещён" }),
@@ -36,7 +34,6 @@ export async function addComment(req: Request): Promise<Response> {
       );
     }
 
-    // Создаем комментарий с привязкой к посту и пользователю
     const comment = await prisma.comment.create({
       data: {
         content,
@@ -50,7 +47,6 @@ export async function addComment(req: Request): Promise<Response> {
       },
     });
 
-    // Переименовываем поле user в author
     const commentWithAuthor = {
       id: comment.id,
       content: comment.content,
@@ -75,7 +71,6 @@ export async function addComment(req: Request): Promise<Response> {
 
 export async function DELETE(req: Request, context: { params: { id: string } }) {
   try {
-    // Извлекаем идентификатор комментария из параметров URL (это UUID)
     const { id: commentId } = context.params;
     if (!commentId) {
       return new Response(
@@ -84,7 +79,6 @@ export async function DELETE(req: Request, context: { params: { id: string } }) 
       );
     }
 
-    // Проверяем авторизацию: получаем токен из кук, используя вашу функцию verifyToken
     const token = await verifyToken(req);
     if (!token) {
       return new Response(
@@ -93,7 +87,6 @@ export async function DELETE(req: Request, context: { params: { id: string } }) 
       );
     }
 
-    // Находим комментарий и включаем данные поста (для проверки, кто является создателем поста)
     const comment = await prisma.comment.findUnique({
       where: { id: commentId },
       include: { post: true },
@@ -106,7 +99,6 @@ export async function DELETE(req: Request, context: { params: { id: string } }) 
       );
     }
 
-    // Разрешаем удаление, если пользователь является либо автором комментария, либо автором поста
     if (comment.userId !== token.id && comment.post.authorId !== token.id) {
       return new Response(
         JSON.stringify({ error: "Нет прав для удаления этого комментария" }),
@@ -114,7 +106,6 @@ export async function DELETE(req: Request, context: { params: { id: string } }) 
       );
     }
 
-    // Удаляем комментарий
     await prisma.comment.delete({
       where: { id: commentId },
     });

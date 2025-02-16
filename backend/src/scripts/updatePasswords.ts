@@ -1,11 +1,11 @@
 import bcrypt from "bcryptjs";
-import prisma from "../prisma"; // Подключаем Prisma
+import prisma from "../prisma"; 
 
 async function updatePasswords() {
   try {
     const users = await prisma.user.findMany({
       where: {
-        NOT: [{ password: "" }], // ✅ Фильтруем пользователей, у которых пароль НЕ null
+        NOT: [{ password: "" }], 
       },
       select: {
         id: true,
@@ -15,12 +15,11 @@ async function updatePasswords() {
     });
 
     for (const user of users) {
-      if (!user.password) continue; // ✅ Игнорируем пользователей без пароля
+      if (!user.password) continue; 
 
-      const password = user.password as string; // ✅ Приводим к `string`
+      const password = user.password as string; 
 
       if (!password.startsWith("$2a$")) {
-        // Проверяем, хеширован ли пароль (bcrypt-хеш всегда начинается с "$2a$")
         const hashedPassword = await bcrypt.hash(password, 10);
         await prisma.user.update({
           where: { id: user.id },

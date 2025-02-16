@@ -12,7 +12,7 @@
   --font-base: 'Inter', system-ui, sans-serif;
   --transition-duration: 0.2s;
 }
-
+ 
 @media (prefers-color-scheme: dark) {
   :root {
     --color-background: #1f2937;
@@ -100,7 +100,7 @@ h1, h2, h3, h4, h5, h6 {
 
 .clamped-text {
   display: -webkit-box;
-  -webkit-line-clamp: 3; /* Количество строк, которые нужно показать */
+  -webkit-line-clamp: 3; 
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -169,7 +169,7 @@ h1, h2, h3, h4, h5, h6 {
   padding: 0 16px;
 }
 
-/* Additional styles to ensure dark theme */
+
 .EasyMDEContainer .CodeMirror-wrap {
   background-color: hsl(var(--muted));
 }

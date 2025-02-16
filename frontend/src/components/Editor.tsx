@@ -45,7 +45,6 @@ export default function Editor({ value, onChange }: EditorProps) {
           lineWrapping: true,
         });
 
-        // Устанавливаем фокус и делаем refresh после небольшой задержки
         setTimeout(() => {
           easyMDERef.current?.codemirror.focus();
           easyMDERef.current?.codemirror.refresh();
@@ -69,7 +68,6 @@ export default function Editor({ value, onChange }: EditorProps) {
     } else if (easyMDERef.current) {
       if (value !== easyMDERef.current.value()) {
         easyMDERef.current.value(value);
-        // Обновляем CodeMirror после программного обновления значения
         easyMDERef.current.codemirror.refresh();
       }
     }

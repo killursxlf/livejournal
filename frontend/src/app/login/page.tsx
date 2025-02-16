@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useSession, signIn } from "next-auth/react";
+import { signIn } from "next-auth/react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,24 +10,21 @@ import Link from "next/link";
 import { FaGoogle } from "react-icons/fa";
 
 export default function Login() {
-  const { data: session } = useSession(); // Текущая сессия
 
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
 
-  console.log("session:", session);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
 
-    // signIn - вызываем провайдера "credentials"
     const result = await signIn("credentials", {
       redirect: false,
-      identifier, // то, что ждет бэкенд
+      identifier, 
       password,
     });
 

@@ -81,7 +81,6 @@ export default function PostsPage() {
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(true);
 
-  // Состояния для фильтрации по тегу и подпискам
   const [selectedTag, setSelectedTag] = useState<string>("");
   const [sort, setSort] = useState<"latest" | "popular">("latest");
   const [subscriptionsFilter, setSubscriptionsFilter] = useState<boolean>(false);
@@ -93,7 +92,6 @@ export default function PostsPage() {
     if (userID !== "") params.append("userId", userID);
     if (selectedTag) params.append("tag", selectedTag);
     if (sort === "popular") params.append("sort", "popular");
-    // Если включен фильтр подписок — добавляем соответствующий параметр
     if (subscriptionsFilter) {
       params.append("subscriptions", "true");
     }
@@ -134,7 +132,6 @@ export default function PostsPage() {
   return (
     <div className="min-h-screen bg-background">
       <main className="container py-6">
-        {/* Заголовок и фильтры */}
         <div className="flex justify-between items-center mb-8 animate-fade-in">
           <div>
             <h1 className="text-3xl font-bold text-foreground mb-2">
@@ -188,9 +185,7 @@ export default function PostsPage() {
           </div>
         </div>
 
-        {/* Основной контент и боковая панель */}
         <div className="grid grid-cols-12 gap-6">
-          {/* Основная область с постами */}
           <div className="col-span-12 lg:col-span-8">
             <div className="space-y-6">
               {posts.map((post) => (
@@ -230,10 +225,8 @@ export default function PostsPage() {
             </div>
           </div>
 
-          {/* Боковая панель */}
           <div className="hidden lg:block lg:col-span-4">
             <div className="sticky top-6 space-y-6">
-              {/* Популярные теги */}
               <div className="rounded-lg border border-white/5 p-4 backdrop-blur-sm bg-black/20">
                 <h3 className="text-lg font-medium mb-3 flex items-center gap-2">
                   <BookMarked className="w-4 h-4" />
@@ -274,7 +267,6 @@ export default function PostsPage() {
                 </ScrollArea>
               </div>
 
-              {/* RSS лента */}
               <div className="rounded-lg border border-white/5 p-4 backdrop-blur-sm bg-black/20">
                 <h3 className="text-lg font-medium mb-3 flex items-center gap-2">
                   <Rss className="w-4 h-4" />

@@ -25,7 +25,6 @@ serve({
   async fetch(req: Request) {
     const url = new URL(req.url);
 
-    // Обработка preflight-запросов CORS
     if (req.method === "OPTIONS") {
       return new Response(null, {
         headers: {
@@ -37,7 +36,6 @@ serve({
 
     let response: Response;
 
-    // Обработка статической раздачи изображений
     if (url.pathname.startsWith("/uploads/")) {
       try {
         const filePath = `./public${url.pathname}`;
@@ -50,7 +48,6 @@ serve({
       }
     } else {
       try {
-        // Обработка открытых маршрутов
         if (url.pathname === "/api/register" && req.method === "POST") {
           response = await register(req);
         } else if (url.pathname === "/api/login" && req.method === "POST") {
@@ -111,7 +108,6 @@ serve({
       }
     }
 
-    // Добавляем CORS-заголовки к ответу
     const mergedHeaders = new Headers(response.headers);
     const cors = corsHeaders(req);
     for (const [key, value] of Object.entries(cors)) {

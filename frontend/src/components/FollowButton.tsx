@@ -15,7 +15,6 @@ export function FollowButton({ targetUserId, isFollowingInitial }: FollowButtonP
   const { data: session } = useSession();
   const [isFollowing, setIsFollowing] = useState(isFollowingInitial);
 
-  // Синхронизация пропса, если он меняется от родителя
   useEffect(() => {
     setIsFollowing(isFollowingInitial);
   }, [isFollowingInitial]);
@@ -49,9 +48,6 @@ export function FollowButton({ targetUserId, isFollowingInitial }: FollowButtonP
     }
   };
 
-  // Пример условного стиля:
-  // Если подписан, кнопка имеет темный фон с обводкой и текст с цветом, как у кнопки "Подписаться"
-  // Иначе – стандартное оформление (например, яркий фон и белый текст)
   const buttonClasses = isFollowing
     ? "bg-gray-900 border border-gray-900 text-primary hover:bg-gray-800 hover:text-white"
     : "bg-primary text-white hover:bg-primary/90";

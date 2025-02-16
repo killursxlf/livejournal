@@ -35,14 +35,13 @@ const Header = () => {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/50 backdrop-blur-sm">
       <div className="container flex h-16 items-center justify-between">
-        {/* Логотип */}
+
         <div className="flex items-center">
           <Link href="/" className="text-2xl font-bold text-primary">
             LiveJournal
           </Link>
         </div>
 
-        {/* Навигация */}
         <NavigationMenu>
           <NavigationMenuList>
             <NavigationMenuItem>
@@ -72,13 +71,11 @@ const Header = () => {
           </NavigationMenuList>
         </NavigationMenu>
 
-        {/* Действия */}
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" className="text-foreground hover:bg-accent">
             <Search className="h-5 w-5" />
           </Button>
 
-          {/* Кнопка для профиля/входа с динамическим переходом */}
           <Button asChild variant="ghost" size="icon" className="text-foreground hover:bg-accent">
             <Link href={profileLink}>
               <User className="h-5 w-5" />

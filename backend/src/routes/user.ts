@@ -256,13 +256,11 @@ export async function getUser(req: Request): Promise<Response> {
 
 export async function getCurrentUser(req: Request) {
   try {
-    // Получаем заголовок с куками
     const cookieHeader = req.headers.get("Cookie");
     if (!cookieHeader) {
       return new Response(JSON.stringify({ error: "Не авторизован" }), { status: 401 });
     }
 
-    // Парсим куки и достаём токен
     const cookies = Object.fromEntries(cookieHeader.split("; ").map(c => c.split("=")));
     const token = cookies["token"];
 
@@ -270,14 +268,12 @@ export async function getCurrentUser(req: Request) {
       return new Response(JSON.stringify({ error: "Не авторизован" }), { status: 401 });
     }
 
-    // Проверяем токен
     const decoded = jwt.verify(token, process.env.JWT_SECRET!);
 
     return new Response(JSON.stringify(decoded), { status: 200 });
   } catch (error) {
     console.error("Ошибка получения пользователя:", error);
 
-    // Проверяем, является ли error экземпляром Error
     const errorMessage = error instanceof Error ? error.message : "Ошибка сервера";
 
     return new Response(JSON.stringify({ error: errorMessage }), { status: 401 });
@@ -296,7 +292,6 @@ export async function completeProfile(req: Request) {
       });
     }
 
-    // Проверяем, что username не занят
     const existingUser = await prisma.user.findUnique({ where: { username } });
     if (existingUser) {
       return new Response(
@@ -308,30 +303,27 @@ export async function completeProfile(req: Request) {
       );
     }
 
-    // Ищем пользователя по email
     let user = await prisma.user.findUnique({ where: { email } });
 
-    // Хешируем пароль
     const hashedPassword = await bcrypt.hash(password, 10);
 
     if (user) {
-      // Обновляем существующего пользователя
       user = await prisma.user.update({
         where: { email },
         data: {
           name,
           username,
-          password: hashedPassword, // <-- сохраняем хеш
+          password: hashedPassword, 
         },
       });
     } else {
-      // Создаём нового пользователя
+
       user = await prisma.user.create({
         data: {
           email,
           name,
           username,
-          password: hashedPassword, // <-- сохраняем хеш
+          password: hashedPassword, 
         },
       });
     }
@@ -355,7 +347,6 @@ export async function completeProfile(req: Request) {
 
 export async function updateProfile(req: Request): Promise<Response> {
   try {
-    // Проверка токена
     const tokenData = await verifyToken(req);
     console.log("Token Data:", tokenData);
     const tokenEmail = tokenData?.user?.email || tokenData?.email;
@@ -367,7 +358,6 @@ export async function updateProfile(req: Request): Promise<Response> {
       );
     }
 
-    // Собираем данные для обновления в объект updateData
     const updateData: { 
       email?: string;
       name?: string; 
@@ -381,7 +371,6 @@ export async function updateProfile(req: Request): Promise<Response> {
 
     const contentType = req.headers.get("Content-Type") || "";
     if (contentType.includes("multipart/form-data")) {
-      // Если данные отправляются в форме (с файлом аватара)
       const formData = await req.formData();
       email = formData.get("email") as string | null;
       const name = formData.get("name") as string | null;
@@ -394,7 +383,6 @@ export async function updateProfile(req: Request): Promise<Response> {
       if (bio) updateData.bio = bio;
       if (newUsername) updateData.username = newUsername;
     } else {
-      // Если данные отправляются как JSON
       const body = await req.json();
       email = body.email;
       if (body.name !== undefined) updateData.name = body.name;
@@ -410,7 +398,6 @@ export async function updateProfile(req: Request): Promise<Response> {
       );
     }
 
-    // Сверяем email из запроса с email из токена
     if (email !== tokenEmail) {
       return new Response(
         JSON.stringify({ error: "Доступ запрещён" }),
@@ -418,31 +405,23 @@ export async function updateProfile(req: Request): Promise<Response> {
       );
     }
 
-    // Если файл аватара передан, обрабатываем его:
     if (avatarFile && avatarFile instanceof File) {
-      // Получаем текущего пользователя из БД для удаления старой аватарки
       const existingUser = await prisma.user.findUnique({ where: { email } });
       if (existingUser && existingUser.avatar && existingUser.avatar.startsWith("http://localhost:3000")) {
         try {
-          // Извлекаем путь файла из URL (например, http://localhost:3000/uploads/avatar_123.png)
           const oldUrl = new URL(existingUser.avatar);
           const oldFilePath = `./public${oldUrl.pathname}`;
-          // Удаляем старый файл (если существует)
           await fs.unlink(oldFilePath);
         } catch (err) {
           console.error("Ошибка удаления старого файла аватара:", err);
-          // Если удаление не удалось, можно продолжить, но логируем ошибку
         }
       }
 
-      // Генерируем новое имя файла и путь
       const fileExtension = avatarFile.name.split(".").pop();
       const fileName = `avatar_${Date.now()}.${fileExtension}`;
       const filePath = `/uploads/${fileName}`;
 
-      // Записываем новый файл в папку public
       await Bun.write(`./public${filePath}`, avatarFile);
-      // Обновляем поле avatar с новым URL
       updateData.avatar = `http://localhost:3000${filePath}`;
     }
 
@@ -502,7 +481,6 @@ export async function getUserWithPosts(req: Request): Promise<Response> {
             },
           },
         },
-        // Предполагается, что вы реализовали отношения через модель Follows
         followers: true,
         following: true,
       },
@@ -523,7 +501,6 @@ export async function getUserWithPosts(req: Request): Promise<Response> {
       title: post.title,
       content: post.content,
       createdAt: post.createdAt,
-      // Автор поста — это сам пользователь, найденный по username
       author: {
         username: user.username,
         name: user.name,
@@ -555,7 +532,7 @@ export async function getUserWithPosts(req: Request): Promise<Response> {
       bio: user.bio,
       email: user.email,
       avatar: user.avatar,
-      createdAt: user.createdAt, // Дата регистрации
+      createdAt: user.createdAt, 
       followerCount: user.followers ? user.followers.length : 0,
       followingCount: user.following ? user.following.length : 0,
       posts: postsWithExtraFields,

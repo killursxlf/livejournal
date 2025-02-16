@@ -17,7 +17,6 @@ export function LikeButton({ postId, initialLiked, initialCount }: LikeButtonPro
   const handleLike = useCallback(async () => {
     if (isProcessing) return;
 
-    // Оптимистичное обновление
     setLiked((prev) => !prev);
     setLikeCount((prev) => (liked ? Math.max(0, prev - 1) : prev + 1));
     setIsProcessing(true);
@@ -37,7 +36,6 @@ export function LikeButton({ postId, initialLiked, initialCount }: LikeButtonPro
       }
     } catch (error) {
       console.error("Ошибка при обработке лайка:", error);
-      // Откатить изменения при ошибке
       setLiked((prev) => !prev);
       setLikeCount((prev) => (liked ? prev + 1 : Math.max(0, prev - 1)));
     } finally {

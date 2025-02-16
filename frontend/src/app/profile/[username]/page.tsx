@@ -27,9 +27,9 @@ interface UserProfileData {
   email?: string;
   createdAt: string;
   posts?: PostData[];
-  likedPosts?: PostData[]; // посты, которые пользователь лайкнул
-  savedPosts?: PostData[]; // посты, которые пользователь сохранил
-  draftPosts?: PostData[]; // черновики
+  likedPosts?: PostData[]; 
+  savedPosts?: PostData[]; 
+  draftPosts?: PostData[]; 
   followerCount?: number;
   followingCount?: number;
   isFollow: boolean;
@@ -41,8 +41,8 @@ interface PostData {
   title: string;
   content: string;
   createdAt: string;
-  publishAt?: string; // добавляем поле publishAt
-  status: string; // добавляем поле status
+  publishAt?: string; 
+  status: string; 
   author: {
     username: string;
     name: string;
@@ -146,15 +146,11 @@ export default function UserProfile() {
   if (error) return <p className="text-red-500">{error}</p>;
   if (!user) return <p>Загрузка профиля...</p>;
 
-  // Форматируем дату регистрации
   const joinedDate = new Date(user.createdAt).toLocaleDateString("en-US", {
     month: "long",
     year: "numeric",
   });
 
-  // Фильтрация публикаций:
-  // Отбираем только посты, у которых статус не DRAFT,
-  // и которые имеют publishAt, наступившее на текущий момент.
   const publishedPosts = user.posts?.filter((post: PostData) => {
     if (post.status === "DRAFT") return false;
     if (!post.publishAt) return false;
@@ -166,11 +162,9 @@ export default function UserProfile() {
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto py-8 space-y-8">
-        {/* Карточка профиля */}
         <Card className="max-w-4xl mx-auto bg-gradient-to-br from-[#2A3041] to-[#1A1F2C] border-primary/20">
           <CardContent className="p-8">
             <div className="flex flex-col md:flex-row gap-8 items-start">
-              {/* Аватар */}
               <div className="flex-shrink-0">
                 <Avatar className="w-32 h-32 ring-4 ring-primary/20 ring-offset-2 ring-offset-background">
                   {user.avatar ? (
@@ -185,7 +179,7 @@ export default function UserProfile() {
                   )}
                 </Avatar>
               </div>
-              {/* Информация о пользователе */}
+
               <div className="flex-1 space-y-6">
                 <div className="flex justify-between items-start">
                   <div>
@@ -235,7 +229,7 @@ export default function UserProfile() {
                     />
                   )}
                 </div>
-                {/* Статистика */}
+
                 <div className="flex gap-6 text-sm p-4 rounded-lg bg-black/20 backdrop-blur-sm border border-white/5">
                   <div className="px-4 border-r border-white/10">
                     <span className="block font-bold text-lg text-primary mb-1">
@@ -261,7 +255,6 @@ export default function UserProfile() {
                   </div>
                 </div>
 
-                {/* Контактная информация и дата регистрации */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 rounded-lg bg-black/20 backdrop-blur-sm border border-white/5">
                   {user.email && (
                     <div className="flex items-center gap-2 text-muted-foreground/80">
@@ -280,7 +273,6 @@ export default function UserProfile() {
           </CardContent>
         </Card>
 
-        {/* Раздел с табами для публикаций */}
         <div className="max-w-4xl mx-auto">
           <Tabs defaultValue="posts" className="space-y-6">
             <TabsList className="grid w-full grid-cols-4 max-w-[600px]">
@@ -338,16 +330,13 @@ export default function UserProfile() {
                 <div className="space-y-4">
                   {(() => {
                     const now = new Date();
-                    // Посты, запланированные к публикации: статус "PUBLISHED", но дата публикации ещё не наступила
                     const scheduledPosts = user.posts?.filter(
                       (post: PostData) =>
                         post.status === "PUBLISHED" &&
                         post.publishAt &&
                         new Date(post.publishAt) > now
                     ) || [];
-                    // Черновики (статус DRAFT)
                     const drafts = user.draftPosts || [];
-                    // Объединяем оба массива
                     const allDrafts = [...drafts, ...scheduledPosts];
                     if (allDrafts.length === 0) {
                       return <p className="text-gray-500 mt-4">Пока нет черновиков.</p>;
@@ -385,7 +374,6 @@ export default function UserProfile() {
                             }
                             currentUser={currentUser}
                             isSaved={post.isSaved}
-                            // Если пост запланирован, передаём scheduledMessage
                             scheduledMessage={
                               post.status === "PUBLISHED" &&
                               post.publishAt &&

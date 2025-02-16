@@ -62,11 +62,10 @@ const backendURL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000
 const PostPage = () => {
   const params = useParams();
   const router = useRouter();
-  const { id } = params; // id поста из URL
+  const { id } = params; 
   const { data: session } = useSession();
   
 
-  // Для информации о посте (а также для проверки автора, если потребуется)
   const [post, setPost] = useState<PostType | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [newComment, setNewComment] = useState<string>("");
@@ -96,7 +95,6 @@ const PostPage = () => {
     fetchPost();
   }, [id]);
 
-  // Определяем, является ли текущий пользователь автором поста
   const isAuthor = session && post && session.user.username === post.author.username;
 
   const handleSubmitComment = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -187,16 +185,14 @@ const PostPage = () => {
     }
   };
 
-  // Функция для редактирования поста
   const handleEditPost = () => {
     router.push(`/edit-draft/${post?.id}`);
   };
 
-  // Функция для удаления поста
   const handleDeletePost = async () => {
     try {
       const response = await fetch(`${backendURL}/api/delete-post?id=${post?.id}`, {
-        method: "DELETE", // или "POST", в зависимости от реализации бэкенда
+        method: "DELETE", 
         credentials: "include",
       });
       if (!response.ok) {
@@ -235,7 +231,6 @@ const PostPage = () => {
     <div className="min-h-screen bg-background">
       <main className="container py-6">
         <div className="max-w-4xl mx-auto">
-          {/* Кнопка навигации назад */}
           <button
             onClick={() => router.push("/posts")}
             className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors mb-6"
@@ -244,7 +239,6 @@ const PostPage = () => {
             Назад к списку постов
           </button>
 
-          {/* Отображение поста */}
           <Card className="mb-8 backdrop-blur-sm bg-black/20 border-white/5">
             <CardHeader>
               <div className="flex items-start justify-between gap-4">
@@ -331,13 +325,11 @@ const PostPage = () => {
             </CardContent>
           </Card>
 
-          {/* Комментарии */}
           <div className="space-y-6">
             <div className="flex items-center gap-2">
               <MessageSquare className="w-5 h-5" />
               <h2 className="text-xl font-semibold">Комментарии</h2>
             </div>
-            {/* Форма для добавления комментария */}
             <form onSubmit={handleSubmitComment} className="space-y-4">
               <Textarea
                 placeholder="Оставьте свой комментарий..."
@@ -348,7 +340,6 @@ const PostPage = () => {
               <Button type="submit" className="w-full sm:w-auto">
                 Отправить комментарий
               </Button>
-              {/* Если пользователь не авторизован и попытался отправить комментарий, показываем сообщение */}
               {!session && showAuthMessage && (
                 <p className="mt-2 text-sm text-red-500">
                   Чтобы оставить комментарий, пожалуйста,{" "}
@@ -359,7 +350,6 @@ const PostPage = () => {
                 </p>
               )}
             </form>
-            {/* Список комментариев */}
             <div className="mt-4 space-y-4">
               {post.comments.map((comment) => (
                 <Card key={comment.id} className="backdrop-blur-sm bg-black/20 border-white/5">

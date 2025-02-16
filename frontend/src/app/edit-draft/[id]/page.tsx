@@ -13,7 +13,6 @@ import { useToast } from "@/components/ui/use-toast";
 
 const backendURL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000";
 
-// Определяем тип ответа от API
 interface PostResponse {
   title: string;
   content: string;
@@ -29,7 +28,7 @@ export default function EditDraft() {
   const params = useParams();
   const router = useRouter();
   const { toast } = useToast();
-  const id = params.id; // получаем id из динамического сегмента маршрута
+  const id = params.id; 
 
   const [title, setTitle] = useState("");
   const [tags, setTags] = useState<string[]>([]);
@@ -38,13 +37,11 @@ export default function EditDraft() {
   const [publishDate, setPublishDate] = useState("");
   const [publishTime, setPublishTime] = useState("");
   const [versions, setVersions] = useState<VersionType[]>([]);
-  // Сохраняем текущий (актуальный) черновик, чтобы можно было вернуться к нему
   const [currentDraft, setCurrentDraft] = useState<{ title: string; content: string } | null>(null);
 
   const editorRef = useRef<HTMLDivElement>(null);
   const [easyMDEInstance, setEasyMDEInstance] = useState<EasyMDE | null>(null);
 
-  // Эффект для инициализации редактора
   useEffect(() => {
     let easyMDE: EasyMDE | null = null;
 
@@ -98,7 +95,6 @@ export default function EditDraft() {
     };
   }, []);
 
-  // Эффект для получения данных поста
   useEffect(() => {
     if (!id) {
       console.log("ID отсутствует, GET-запрос не выполняется");
@@ -114,12 +110,10 @@ export default function EditDraft() {
         console.log("Получены данные:", data);
         setTitle(data.title || "");
         setContent(data.content || "");
-        // Сохраняем текущий черновик для возможности возврата
         setCurrentDraft({
           title: data.title || "",
           content: data.content || "",
         });
-        // Преобразуем массив postTags в массив строк
         setTags(
           (data.postTags || []).map(
             (item: { tag: { name: string } }) => item.tag.name
@@ -129,7 +123,6 @@ export default function EditDraft() {
         setPublishDate(data.publishDate || "");
         setPublishTime(data.publishTime || "");
 
-        // Сохраняем версии поста
         setVersions(data.postVersions || []);
 
         if (easyMDEInstance) {
@@ -141,7 +134,6 @@ export default function EditDraft() {
       });
   }, [id, easyMDEInstance]);
 
-  // Обработчик выбора версии
   const handleVersionSelect = (version: VersionType) => {
     setTitle(version.title || "");
     setContent(version.content || "");
@@ -150,7 +142,6 @@ export default function EditDraft() {
     }
   };
 
-  // Обработчик возврата к текущему черновику
   const handleRestoreCurrentVersion = () => {
     if (currentDraft) {
       setTitle(currentDraft.title);
@@ -161,7 +152,6 @@ export default function EditDraft() {
     }
   };
 
-  // Функция для обновления поста (черновика)
   const updatePost = async (status: "PUBLISHED" | "DRAFT") => {
     const publicationTypeMapping: Record<string, string> = {
       Article: "ARTICLE",
@@ -195,7 +185,6 @@ export default function EditDraft() {
           description: "Пост успешно обновлен",
           duration: 3000,
         });
-        // Перенаправляем на /posts после успешного обновления
         router.push("/posts");
       } else {
         console.error("Ошибка обновления поста:", data.error);

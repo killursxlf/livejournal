@@ -17,7 +17,6 @@ export function SavePostButton({ postId, isSavedInitial }: SavePostButtonProps) 
   const [saved, setSaved] = useState(isSavedInitial);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Синхронизируем локальное состояние с изменением входящего пропса
   useEffect(() => {
     setSaved(isSavedInitial);
   }, [isSavedInitial]);
@@ -25,7 +24,6 @@ export function SavePostButton({ postId, isSavedInitial }: SavePostButtonProps) 
   const handleToggleSave = useCallback(async () => {
     if (isProcessing) return;
 
-    // Оптимистичное обновление
     setSaved((prev) => !prev);
     setIsProcessing(true);
 
@@ -44,7 +42,6 @@ export function SavePostButton({ postId, isSavedInitial }: SavePostButtonProps) 
       }
     } catch (error: unknown) {
       console.error("Ошибка при переключении избранного:", error);
-      // Откат оптимистичного обновления при ошибке
       setSaved((prev) => !prev);
     } finally {
       setIsProcessing(false);

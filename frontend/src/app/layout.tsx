@@ -13,7 +13,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <SessionProvider>
           <Header />
           <main>{children}</main>
-          {/* Подключаем контейнер для toast-уведомлений */}
           <Toaster />
           <Footer />
         </SessionProvider>

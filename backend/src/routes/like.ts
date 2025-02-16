@@ -6,7 +6,6 @@ const prisma = new PrismaClient();
 
 export async function toggleLike(req: Request): Promise<Response> {
   try {
-    // Проверяем токен
     const tokenData = await verifyToken(req);
     const tokenUserId = tokenData?.user?.id || tokenData?.id;
     if (!tokenUserId) {
@@ -25,7 +24,6 @@ export async function toggleLike(req: Request): Promise<Response> {
       );
     }
 
-    // Проверяем, что userId из запроса совпадает с идентификатором из токена
     if (userId !== tokenUserId) {
       return new Response(
         JSON.stringify({ error: "Доступ запрещён" }),
@@ -33,7 +31,6 @@ export async function toggleLike(req: Request): Promise<Response> {
       );
     }
 
-    // Поиск существующего лайка
     const existingLike = await prisma.like.findUnique({
       where: {
         postId_userId: { postId, userId },

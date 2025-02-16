@@ -58,12 +58,10 @@ export default function EditPost() {
           minHeight: "300px",
         });
 
-        // При изменении содержимого редактора обновляем состояние content
         easyMDE.codemirror.on("change", () => {
           setContent(easyMDE!.value());
         });
   
-        // Применение кастомных стилей после инициализации EasyMDE
         const cmElement = editorRef.current.querySelector(".CodeMirror") as HTMLElement;
         if (cmElement) {
           cmElement.style.backgroundColor = "hsl(var(--muted))";

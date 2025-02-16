@@ -48,7 +48,6 @@ export interface PostCardProps {
   comments?: Comment[];
   currentUser?: CurrentUser;
   isSaved?: boolean;
-  // Новый проп для отображения уведомления о запланированной публикации
   scheduledMessage?: string;
 }
 
@@ -65,11 +64,10 @@ export const PostCard = ({
   comments,
   currentUser,
   isSaved = false,
-  scheduledMessage, // новый проп
+  scheduledMessage, 
 }: PostCardProps) => {
   const { toast } = useToast();
 
-  // Форматируем дату поста
   const formattedDate = new Date(createdAt).toLocaleString("ru-RU", {
     day: "numeric",
     month: "short",
@@ -78,7 +76,7 @@ export const PostCard = ({
     minute: "2-digit",
   });
 
-  // Локальное состояние комментариев и формы
+
   const [localComments, setLocalComments] = useState<Comment[]>(comments || []);
   const [showComments, setShowComments] = useState(false);
   const [showAllComments, setShowAllComments] = useState(false);
@@ -99,7 +97,6 @@ export const PostCard = ({
     if (!newComment.trim()) return;
 
     if (!currentUser) {
-      // Можно добавить уведомление или редирект на страницу логина
       return;
     }
 
@@ -324,7 +321,6 @@ export const PostCard = ({
           </div>
         )}
       </CardContent>
-      {/* Секция комментариев */}
       {showComments && (
         <div className="mt-6 space-y-4 pb-4">
           <div className="h-px bg-border/5 my-4" />

@@ -4,7 +4,7 @@ import { verifyToken } from "./auth";
 
 export async function toggleSavedPost(req: Request): Promise<Response> {
   try {
-    // Проверяем токен
+
     const tokenData = await verifyToken(req);
     const tokenUserId = tokenData?.user?.id || tokenData?.id;
     if (!tokenUserId) {
@@ -22,7 +22,6 @@ export async function toggleSavedPost(req: Request): Promise<Response> {
       });
     }
 
-    // Проверяем, сохранён ли уже пост
     const existing = await prisma.savedPost.findUnique({
       where: {
         userId_postId: {
@@ -33,7 +32,6 @@ export async function toggleSavedPost(req: Request): Promise<Response> {
     });
 
     if (existing) {
-      // Если пост уже сохранён, удаляем его (удаляем из избранного)
       await prisma.savedPost.delete({
         where: {
           userId_postId: {
@@ -48,7 +46,6 @@ export async function toggleSavedPost(req: Request): Promise<Response> {
         { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders() } }
       );
     } else {
-      // Иначе создаём новую запись сохранения поста
       await prisma.savedPost.create({
         data: {
           userId,
