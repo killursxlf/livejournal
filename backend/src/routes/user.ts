@@ -5,6 +5,8 @@ import jwt from "jsonwebtoken";
 import { verifyToken } from "./auth";
 import fs from "fs/promises";
 
+const backendURL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000";
+
 export async function getUser(req: Request): Promise<Response> {
   try {
     const url = new URL(req.url);
@@ -407,7 +409,7 @@ export async function updateProfile(req: Request): Promise<Response> {
 
     if (avatarFile && avatarFile instanceof File) {
       const existingUser = await prisma.user.findUnique({ where: { email } });
-      if (existingUser && existingUser.avatar && existingUser.avatar.startsWith("http://localhost:3000")) {
+      if (existingUser && existingUser.avatar && existingUser.avatar.startsWith(`${backendURL}`)) {
         try {
           const oldUrl = new URL(existingUser.avatar);
           const oldFilePath = `./public${oldUrl.pathname}`;
@@ -422,7 +424,7 @@ export async function updateProfile(req: Request): Promise<Response> {
       const filePath = `/uploads/${fileName}`;
 
       await Bun.write(`./public${filePath}`, avatarFile);
-      updateData.avatar = `http://localhost:3000${filePath}`;
+      updateData.avatar = `${backendURL}${filePath}`;
     }
 
     if (!Object.keys(updateData).length) {

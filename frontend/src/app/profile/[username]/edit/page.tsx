@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Camera } from "lucide-react";
+import ImageCropper from "@/components/ImageCropper";
+import { useToast } from "@/components/ui/use-toast";
 
 const backendURL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000";
 
@@ -33,8 +35,12 @@ export default function EditProfile() {
   const [avatarPreview, setAvatarPreview] = useState<string>("");
   const [error, setError] = useState("");
 
+  const [isCropping, setIsCropping] = useState(false);
+  const [tempAvatarPreview, setTempAvatarPreview] = useState<string>("");
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isMounted = useRef(true);
+  const { toast } = useToast();
 
   useEffect(() => {
     isMounted.current = true;
@@ -65,7 +71,6 @@ export default function EditProfile() {
     };
   }, [username]);
 
-  // Очистка временного URL аватарки при изменении или размонтировании
   useEffect(() => {
     return () => {
       if (avatarPreview) {
@@ -77,19 +82,28 @@ export default function EditProfile() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      setAvatar(file);
-      // Если уже был создан URL, освобождаем его
-      if (avatarPreview) {
-        URL.revokeObjectURL(avatarPreview);
-      }
       const previewURL = URL.createObjectURL(file);
-      setAvatarPreview(previewURL);
+      setTempAvatarPreview(previewURL);
+      setIsCropping(true);
     }
   };
 
   const handleAvatarButtonClick = () => {
     fileInputRef.current?.click();
   };
+
+  const handleCropComplete = useCallback((croppedFile: File) => {
+    setAvatar(croppedFile);
+    const croppedURL = URL.createObjectURL(croppedFile);
+    setAvatarPreview(croppedURL);
+    setIsCropping(false);
+    setTempAvatarPreview("");
+  }, []);
+
+  const handleCropCancel = useCallback(() => {
+    setIsCropping(false);
+    setTempAvatarPreview("");
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -99,7 +113,6 @@ export default function EditProfile() {
     }
     if (!user) return;
 
-    // Объединяем firstName и lastName
     const combinedName = `${firstName.trim()} ${lastName.trim()}`.trim();
 
     let res;
@@ -130,7 +143,10 @@ export default function EditProfile() {
     }
 
     if (res.ok) {
-      alert("✅ Профиль обновлён!");
+      toast({
+        description: "✅ Профиль обновлён!",
+        duration: 3000,
+      });
       router.push(`/profile/${newUsername}`);
     } else {
       const data = await res.json();
@@ -143,6 +159,15 @@ export default function EditProfile() {
 
   return (
     <div className="min-h-screen bg-background">
+      {isCropping && tempAvatarPreview && (
+        <ImageCropper
+          imageSrc={tempAvatarPreview}
+          onCropComplete={handleCropComplete}
+          onCancel={handleCropCancel}
+          minWidth={100}
+          minHeight={100}
+        />
+      )}
 
       <div className="container py-8">
         <Card className="max-w-2xl mx-auto backdrop-blur-sm bg-black/20 border-white/5">
@@ -151,7 +176,6 @@ export default function EditProfile() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Avatar upload */}
               <div className="flex flex-col items-center gap-4">
                 <div className="relative">
                   <Avatar className="w-32 h-32">
@@ -216,7 +240,6 @@ export default function EditProfile() {
                   />
                 </div>
 
-                {/* Поле для username */}
                 <div className="space-y-2">
                   <Label htmlFor="username">Username</Label>
                   <Input

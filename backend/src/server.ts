@@ -21,6 +21,7 @@ import { toggleFollow } from "./routes/follow";
 import { toggleSavedPost } from "./routes/savePost";
 
 serve({
+  hostname: "0.0.0.0",
   port: 3000,
   async fetch(req: Request) {
     const url = new URL(req.url);

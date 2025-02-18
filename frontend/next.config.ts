@@ -11,9 +11,9 @@ const nextConfig: NextConfig = {
           pathname: '/**',
         },
         {
-          protocol: 'https',
-          hostname: 'lh3.googleusercontent.com',
-          port: '',
+          protocol: 'http',
+          hostname: '192.168.178.24',
+          port: '3000',
           pathname: '/**',
         },
       ],

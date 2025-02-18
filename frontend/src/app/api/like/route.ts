@@ -14,7 +14,6 @@ export async function POST(request: Request) {
   const backendURL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000";
   const payload = { postId, userId };
 
-  // Получаем cookie из запроса и передаем её дальше
   const cookie = request.headers.get("cookie");
 
   try {

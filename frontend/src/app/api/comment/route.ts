@@ -8,12 +8,11 @@ export async function POST(request: Request) {
     const body = await request.json();
     console.log("Next.js роут /api/comment: Тело запроса", body);
 
-    // Получаем cookie из исходного запроса
     const cookie = request.headers.get("cookie");
 
     const res = await fetch(`${backendURL}/api/comment`, {
       method: "POST",
-      credentials: "include", // сохраняем эту опцию
+      credentials: "include", 
       headers: {
         "Content-Type": "application/json",
         ...(cookie ? { Cookie: cookie } : {}),

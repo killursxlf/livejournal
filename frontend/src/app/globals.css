@@ -89,6 +89,12 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
+@media (forced-colors: active) {
+  * {
+    forced-color-adjust: none;
+  }
+}
+
 .card {
   padding: 2em;
 }

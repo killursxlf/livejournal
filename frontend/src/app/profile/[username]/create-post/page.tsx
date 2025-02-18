@@ -50,8 +50,6 @@ export default function EditPost() {
             "image",
             "|",
             "preview",
-            "side-by-side",
-            "fullscreen",
             "|",
             "guide",
           ],

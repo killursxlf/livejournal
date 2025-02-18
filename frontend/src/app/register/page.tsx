@@ -39,6 +39,8 @@ const getPasswordStrengthColor = (strength: number): string => {
   return "bg-green-500";
 };
 
+const backendURL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000";
+
 export default function Register() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -72,7 +74,7 @@ export default function Register() {
     }
 
     try {
-      const res = await fetch("http://localhost:3000/api/register", {
+      const res = await fetch(`${backendURL}/api/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

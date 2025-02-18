@@ -66,8 +66,6 @@ export default function EditDraft() {
             "image",
             "|",
             "preview",
-            "side-by-side",
-            "fullscreen",
             "|",
             "guide",
           ],

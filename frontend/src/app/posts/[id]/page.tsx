@@ -14,9 +14,9 @@ import {
   MessageSquare,
   UserRound,
   ChevronDown,
-  MoreVertical, 
-  Pencil, 
-  Trash2
+  MoreVertical,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import { LikeButton } from "@/components/LikeButton";
 import {
@@ -26,6 +26,7 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/components/ui/use-toast";
+import ReactMarkdown from "react-markdown";
 
 type CommentType = {
   id: string;
@@ -56,15 +57,13 @@ type PostType = {
   isSaved: boolean;
 };
 
-
 const backendURL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000";
 
 const PostPage = () => {
   const params = useParams();
   const router = useRouter();
-  const { id } = params; 
+  const { id } = params;
   const { data: session } = useSession();
-  
 
   const [post, setPost] = useState<PostType | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -146,11 +145,14 @@ const PostPage = () => {
 
   const handleDeleteComment = async (commentId: string) => {
     try {
-      const response = await fetch(`${backendURL}/api/comment-delete?id=${commentId}`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-      });
+      const response = await fetch(
+        `${backendURL}/api/comment-delete?id=${commentId}`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+        }
+      );
 
       const data = await response.json();
 
@@ -191,10 +193,13 @@ const PostPage = () => {
 
   const handleDeletePost = async () => {
     try {
-      const response = await fetch(`${backendURL}/api/delete-post?id=${post?.id}`, {
-        method: "DELETE", 
-        credentials: "include",
-      });
+      const response = await fetch(
+        `${backendURL}/api/delete-post?id=${post?.id}`,
+        {
+          method: "DELETE",
+          credentials: "include",
+        }
+      );
       if (!response.ok) {
         throw new Error("Ошибка при удалении поста");
       }
@@ -245,7 +250,9 @@ const PostPage = () => {
                 <div className="flex gap-4">
                   <Avatar
                     className="cursor-pointer"
-                    onClick={() => router.push(`/profile/${post.author.username}`)}
+                    onClick={() =>
+                      router.push(`/profile/${post.author.username}`)
+                    }
                   >
                     <AvatarImage src={post.author.avatar} />
                     <AvatarFallback>
@@ -293,7 +300,10 @@ const PostPage = () => {
                         align="end"
                         className="w-[160px] backdrop-blur-md bg-black/90 border-white/10"
                       >
-                        <DropdownMenuItem className="gap-2" onClick={handleEditPost}>
+                        <DropdownMenuItem
+                          className="gap-2"
+                          onClick={handleEditPost}
+                        >
                           <Pencil className="w-4 h-4" />
                           Редактировать
                         </DropdownMenuItem>
@@ -311,10 +321,9 @@ const PostPage = () => {
               </div>
             </CardHeader>
             <CardContent>
-              <div
-                className="prose prose-invert max-w-none clamped-text"
-                dangerouslySetInnerHTML={{ __html: post.content }}
-              />
+              <div className="prose prose-invert max-w-none">
+                <ReactMarkdown>{post.content}</ReactMarkdown>
+              </div>
               <div className="flex flex-wrap gap-2 mt-6">
                 {post.postTags.map((pt, index) => (
                   <Button key={index} variant="secondary" size="sm" className="text-xs">
@@ -362,7 +371,9 @@ const PostPage = () => {
                     </Avatar>
                     <div className="flex-1">
                       <div className="flex justify-between items-start">
-                        <p className="font-medium text-foreground">{comment.author.name}</p>
+                        <p className="font-medium text-foreground">
+                          {comment.author.name}
+                        </p>
                         <div className="flex items-center gap-2 pr-4">
                           <span className="text-sm text-muted-foreground">
                             {new Date(comment.createdAt).toLocaleString("ru-RU", {
@@ -402,7 +413,9 @@ const PostPage = () => {
                             )}
                         </div>
                       </div>
-                      <p className="text-sm text-muted-foreground/90 mt-1">{comment.content}</p>
+                      <p className="text-sm text-muted-foreground/90 mt-1">
+                        {comment.content}
+                      </p>
                     </div>
                   </CardContent>
                 </Card>

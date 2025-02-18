@@ -8,7 +8,10 @@ import { Toaster } from "@/components/ui/toaster";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ru">
+    <html lang="ru" className="dark">
+      <head>
+        <meta name="color-scheme" content="dark" />
+      </head>
       <body>
         <SessionProvider>
           <Header />

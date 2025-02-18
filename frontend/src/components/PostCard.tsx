@@ -223,11 +223,11 @@ export const PostCard = ({
           )}
         </Avatar>
         <div className="flex-1">
-          <Link href={`/posts/${id}`}>
-            <CardTitle className="text-lg group-hover:text-primary transition-colors font-medium">
-              {title}
-            </CardTitle>
-          </Link>
+        <Link href={`/posts/${id}`}>
+          <CardTitle className="text-lg text-white transition-colors font-medium">
+            {title}
+          </CardTitle>
+        </Link>
           {scheduledMessage && (
             <p className="text-xs italic text-muted-foreground mt-1">
               {scheduledMessage}
