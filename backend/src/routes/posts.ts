@@ -550,3 +550,107 @@ export async function deletePost(req: Request): Promise<Response> {
     );
   }
 }
+
+export async function searchPosts(req: Request): Promise<Response> {
+  try {
+    const url = new URL(req.url);
+    const userId = url.searchParams.get("userId");
+    const q = url.searchParams.get("q");
+    const tag = url.searchParams.get("tag");
+
+    const whereClause: any = {};
+
+    if (q) {
+      whereClause.OR = [
+        { title: { contains: q, mode: "insensitive" } },
+        { content: { contains: q, mode: "insensitive" } },
+      ];
+    }
+
+    if (tag) {
+      whereClause.postTags = {
+        some: {
+          tag: { name: tag },
+        },
+      };
+    }
+
+    whereClause.AND = [
+      { status: { not: "DRAFT" } },
+      { publishAt: { lte: new Date() } },
+    ];
+
+    const orderByClause = { createdAt: "desc" as const };
+
+    const posts = await prisma.post.findMany({
+      where: whereClause,
+      orderBy: orderByClause,
+      include: {
+        author: {
+          select: { username: true, name: true, email: true, avatar: true, followers: true },
+        },
+        postTags: { include: { tag: true } },
+        likes: true,
+        comments: {
+          include: {
+            user: {
+              select: { username: true, name: true, avatar: true },
+            },
+          },
+        },
+        savedBy: true,
+      },
+    });
+
+    const postsWithExtraFields = posts.map((post) => {
+      const basePost = {
+        id: post.id,
+        title: post.title,
+        content: post.content,
+        createdAt: post.createdAt,
+        author: {
+          username: post.author.username,
+          name: post.author.name,
+          avatar: post.author.avatar,
+        },
+        postTags: post.postTags.map((pt: { tag: { name: string } }) => ({
+          tag: { name: pt.tag.name },
+        })),
+        likeCount: post.likes.length,
+        commentCount: post.comments.length,
+        comments: post.comments.map((comment) => ({
+          id: comment.id,
+          content: comment.content,
+          createdAt: comment.createdAt,
+          author: {
+            username: comment.user.username,
+            name: comment.user.name,
+            avatar: comment.user.avatar,
+          },
+        })),
+      };
+
+      if (userId) {
+        return {
+          ...basePost,
+          isLiked: post.likes.some((like: { userId: string }) => like.userId === userId),
+          isSaved: post.savedBy.some((saved: { userId: string }) => saved.userId === userId),
+        };
+      }
+      return basePost;
+    });
+
+    return new Response(JSON.stringify(postsWithExtraFields), {
+      headers: {
+        "Content-Type": "application/json",
+        ...corsHeaders(),
+      },
+    });
+  } catch (err) {
+    console.error("Ошибка при searchPosts:", err);
+    return new Response(JSON.stringify({ error: "Ошибка сервера" }), {
+      status: 500,
+      headers: corsHeaders(),
+    });
+  }
+}

@@ -14,11 +14,12 @@ import {
 } from "./routes/user";
 import { corsHeaders } from "./utils/cors";
 import { readFile } from "fs/promises";
-import { getAllPosts, getPost, createPost, updateDraft, deletePost } from "./routes/posts";
+import { getAllPosts, getPost, createPost, updateDraft, deletePost, searchPosts } from "./routes/posts";
 import { toggleLike } from "./routes/like";
 import { addComment, DELETE } from "./routes/comment";
 import { toggleFollow } from "./routes/follow";
 import { toggleSavedPost } from "./routes/savePost";
+import { getAllTags } from "./routes/tags";
 
 serve({
   hostname: "0.0.0.0",
@@ -65,6 +66,10 @@ serve({
           response = await getAllPosts(req);
         } else if (url.pathname === "/api/getpost" && req.method === "GET") {
           response = await getPost(req);
+        } else if (url.pathname === "/api/search" && req.method === "GET") {
+          response = await searchPosts(req);
+        } else if (url.pathname === "/api/get-tags" && req.method === "GET") {
+          response = await getAllTags(req);
         } else if (url.pathname === "/api/user" && req.method === "GET") {
           response = await getUser(req);}
         else {

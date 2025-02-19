@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useSession, signIn, signOut } from "next-auth/react";
-import { User, Search } from "lucide-react";
+import { User, Search, X } from "lucide-react";
 import { Button } from "./ui/button";
 import {
   NavigationMenu,
@@ -12,6 +12,9 @@ import {
   NavigationMenuLink,
 } from "./ui/navigation-menu";
 import { DefaultUser } from "next-auth";
+import { useState } from "react";
+import { Input } from "./ui/input";
+import { useRouter } from "next/navigation";
 
 interface CustomUser extends DefaultUser {
   avatar?: string;
@@ -22,6 +25,10 @@ const backendURL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000
 
 const Header = () => {
   const { data: session } = useSession();
+  const router = useRouter();
+
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const user = session?.user as CustomUser | null;
   let avatar = user?.avatar || user?.image;
@@ -30,12 +37,21 @@ const Header = () => {
   }
 
   const username = user?.username || "";
-  const profileLink = session && username ? `/profile/${encodeURIComponent(username)}` : "/login";
+  const profileLink =
+    session && username ? `/profile/${encodeURIComponent(username)}` : "/login";
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      router.push(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+      setIsSearchOpen(false);
+      setSearchQuery("");
+    }
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/50 backdrop-blur-sm">
       <div className="container flex h-16 items-center justify-between">
-
         <div className="flex items-center">
           <Link href="/" className="text-2xl font-bold text-primary">
             LiveJournal
@@ -72,9 +88,31 @@ const Header = () => {
         </NavigationMenu>
 
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" className="text-foreground hover:bg-accent">
-            <Search className="h-5 w-5" />
-          </Button>
+          <form onSubmit={handleSearch} className="relative">
+            <Input
+              type="search"
+              placeholder="Поиск..."
+              className={`
+                w-0 px-0 bg-background border-primary/20 transition-all duration-300 absolute right-0
+                ${isSearchOpen ? "w-72 px-3 border-opacity-100" : "border-opacity-0"}
+              `}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{
+                pointerEvents: isSearchOpen ? "auto" : "none",
+                opacity: isSearchOpen ? 1 : 0,
+              }}
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="text-foreground hover:bg-accent relative z-10"
+              onClick={() => setIsSearchOpen(!isSearchOpen)}
+            >
+              {isSearchOpen ? <X className="h-5 w-5" /> : <Search className="h-5 w-5" />}
+            </Button>
+          </form>
 
           <Button asChild variant="ghost" size="icon" className="text-foreground hover:bg-accent">
             <Link href={profileLink}>
@@ -112,9 +150,9 @@ const Header = () => {
                 Войти
               </Button>
               <Link href="/register">
-              <Button className="bg-primary text-foreground hover:bg-accent/80">
-                Регистрация
-              </Button>
+                <Button className="bg-primary text-foreground hover:bg-accent/80">
+                  Регистрация
+                </Button>
               </Link>
             </div>
           )}
