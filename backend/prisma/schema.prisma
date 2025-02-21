@@ -131,3 +131,14 @@ enum PublicationType {
   NEWS
   REVIEW
 }
+
+model Notification {
+  id           String   @id @default(uuid())
+  type         String   
+  senderId     String   
+  recipientId  String   
+  postId       String? 
+  message      String   
+  createdAt    DateTime @default(now())
+  isRead       Boolean  @default(false)
+}

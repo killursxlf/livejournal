@@ -267,7 +267,7 @@ export async function createPost(req: Request) {
       content,
       email,
       tags,
-      status,           
+      status,          
       publicationType,  
       publishDate,     
       publishTime,      
@@ -329,6 +329,24 @@ export async function createPost(req: Request) {
       },
     });
 
+    const followers = await prisma.follows.findMany({
+      where: { followingId: user.id },
+    });
+
+    await Promise.all(
+      followers.map(async (follower) => {
+        await prisma.notification.create({
+          data: {
+            type: "new_post",
+            senderId: user.id,
+            recipientId: follower.followerId,
+            postId: post.id,
+            message: `Новый пост от ${user.name || user.email}.`,
+          },
+        });
+      })
+    );
+
     return new Response(
       JSON.stringify({ message: "Публикация создана", post }),
       { headers: corsHeaders() }
@@ -341,6 +359,7 @@ export async function createPost(req: Request) {
     );
   }
 }
+
 
 export async function updateDraft(req: Request): Promise<Response> {
   try {

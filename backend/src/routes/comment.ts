@@ -1,4 +1,3 @@
-// src/controllers/commentController.ts
 import { PrismaClient } from "@prisma/client";
 import { corsHeaders } from "../utils/cors";
 import { verifyToken } from "./auth";
@@ -13,7 +12,10 @@ export async function addComment(req: Request): Promise<Response> {
     if (!tokenUserId) {
       return new Response(
         JSON.stringify({ error: "Не авторизован" }),
-        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders() } }
+        {
+          status: 401,
+          headers: { "Content-Type": "application/json", ...corsHeaders() },
+        }
       );
     }
 
@@ -23,14 +25,20 @@ export async function addComment(req: Request): Promise<Response> {
     if (!content || !postId || !userId) {
       return new Response(
         JSON.stringify({ error: "Missing required fields" }),
-        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders() } }
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json", ...corsHeaders() },
+        }
       );
     }
 
     if (userId !== tokenUserId) {
       return new Response(
         JSON.stringify({ error: "Доступ запрещён" }),
-        { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders() } }
+        {
+          status: 403,
+          headers: { "Content-Type": "application/json", ...corsHeaders() },
+        }
       );
     }
 
@@ -46,6 +54,23 @@ export async function addComment(req: Request): Promise<Response> {
         },
       },
     });
+
+    const post = await prisma.post.findUnique({
+      where: { id: postId },
+      select: { authorId: true },
+    });
+
+    if (post && post.authorId !== userId) {
+      await prisma.notification.create({
+        data: {
+          type: "comment",
+          senderId: userId,
+          recipientId: post.authorId,
+          postId: postId,
+          message: `Пользователь с ID ${userId} прокомментировал ваш пост.`,
+        },
+      });
+    }
 
     const commentWithAuthor = {
       id: comment.id,

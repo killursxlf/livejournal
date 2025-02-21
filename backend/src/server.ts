@@ -20,6 +20,11 @@ import { addComment, DELETE } from "./routes/comment";
 import { toggleFollow } from "./routes/follow";
 import { toggleSavedPost } from "./routes/savePost";
 import { getAllTags } from "./routes/tags";
+import { 
+  createNotification, 
+  getNotifications, 
+  markNotificationsAsRead 
+} from "./routes/notifications";
 
 serve({
   hostname: "0.0.0.0",
@@ -71,8 +76,8 @@ serve({
         } else if (url.pathname === "/api/get-tags" && req.method === "GET") {
           response = await getAllTags(req);
         } else if (url.pathname === "/api/user" && req.method === "GET") {
-          response = await getUser(req);}
-        else {
+          response = await getUser(req);
+        } else {
           const user = await verifyToken(req);
           if (!user) {
             response = new Response(JSON.stringify({ error: "Не авторизован" }), {
@@ -102,9 +107,15 @@ serve({
             response = await updateDraft(req);
           } else if (url.pathname === "/api/delete-post" && req.method === "DELETE") {
             response = await deletePost(req);
+          } else if (url.pathname === "/api/notifications" && req.method === "GET") {
+            response = await getNotifications(req);
+          } else if (url.pathname === "/api/notifications" && req.method === "POST") {
+            response = await createNotification(req);
+          } else if (url.pathname === "/api/notifications" && req.method === "PUT") {
+            response = await markNotificationsAsRead(req);
           } else {
             response = new Response("Страница не найдена", { status: 404 });
-          } 
+          }
         }
       } catch (error) {
         console.error("Ошибка на сервере:", error);

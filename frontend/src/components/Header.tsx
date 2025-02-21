@@ -15,6 +15,7 @@ import { DefaultUser } from "next-auth";
 import { useState } from "react";
 import { Input } from "./ui/input";
 import { useRouter } from "next/navigation";
+import { NotificationsPopover } from "@/components/NotificationPopover";
 
 interface CustomUser extends DefaultUser {
   avatar?: string;
@@ -57,7 +58,6 @@ const Header = () => {
             LiveJournal
           </Link>
         </div>
-
         <NavigationMenu>
           <NavigationMenuList>
             <NavigationMenuItem>
@@ -86,7 +86,6 @@ const Header = () => {
             </NavigationMenuItem>
           </NavigationMenuList>
         </NavigationMenu>
-
         <div className="flex items-center gap-4">
           <form onSubmit={handleSearch} className="relative">
             <Input
@@ -113,15 +112,14 @@ const Header = () => {
               {isSearchOpen ? <X className="h-5 w-5" /> : <Search className="h-5 w-5" />}
             </Button>
           </form>
-
           <Button asChild variant="ghost" size="icon" className="text-foreground hover:bg-accent">
             <Link href={profileLink}>
               <User className="h-5 w-5" />
             </Link>
           </Button>
-
           {session ? (
             <div className="flex items-center gap-4">
+              <NotificationsPopover />
               {avatar && (
                 <Image
                   src={avatar}

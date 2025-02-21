@@ -40,11 +40,9 @@ export async function getUser(req: Request): Promise<Response> {
       );
     }
 
-    // Проверяем токен из куки
     const token = await verifyToken(req);
     const currentUserId = token?.user?.id || currentUserIdFromQuery || null;
 
-    // Загружаем пользователя с его постами и отношениями подписок
     const user = await prisma.user.findUnique({
       where: whereCondition,
       include: {
@@ -77,17 +75,15 @@ export async function getUser(req: Request): Promise<Response> {
       );
     }
 
-    // Если передан currentUserId, вычисляем, подписан ли он на данного пользователя
+
     const isFollow = currentUserId
       ? user.followers.some(
           (follow: { followerId: string }) => follow.followerId === currentUserId
         )
       : false;
 
-    // Определяем, является ли запрос владельцем профиля
     const isOwner = currentUserId && currentUserId === user.id;
 
-    // Функция для маппинга поста в нужный формат
     const mapPost = (post: any) => {
       const author = post.author || {
         username: user.username,
@@ -100,7 +96,7 @@ export async function getUser(req: Request): Promise<Response> {
         title: post.title,
         content: post.content,
         createdAt: post.createdAt,
-        publishAt: post.publishAt, // передаём дату публикации
+        publishAt: post.publishAt, 
         author: {
           username: author.username,
           name: author.name,
@@ -132,14 +128,14 @@ export async function getUser(req: Request): Promise<Response> {
           isSaved: post.savedBy.some(
             (saved: { userId: string }) => saved.userId === currentUserId
           ),
-          // Для владельца добавляем статус поста
+
           status: post.status,
         };
       }
       return basePost;
     };
 
-    // Для постов владельца возвращаем ВСЕ, иначе только те, где статус PUBLISHED и publishAt наступил
+
     const now = new Date();
     const createdPosts = user.posts
       ? (isOwner
@@ -153,7 +149,6 @@ export async function getUser(req: Request): Promise<Response> {
         ).map(mapPost)
       : [];
 
-    // Получаем посты, которые пользователь лайкнул (возвращаем все, без дополнительной фильтрации)
     const likedPostsData = await prisma.post.findMany({
       where: {
         likes: {
@@ -176,7 +171,6 @@ export async function getUser(req: Request): Promise<Response> {
     });
     const likedPosts = likedPostsData.map(mapPost);
 
-    // Получаем посты, которые пользователь сохранил (возвращаем все)
     const savedPostsData = await prisma.post.findMany({
       where: {
         savedBy: {
@@ -199,7 +193,6 @@ export async function getUser(req: Request): Promise<Response> {
     });
     const savedPosts = savedPostsData.map(mapPost);
 
-    // Если текущий пользователь совпадает с владельцем профиля, выбираем черновики (status: DRAFT)
     let draftPosts: any[] = [];
     if (isOwner && currentUserId) {
       const draftPostsData = await prisma.post.findMany({

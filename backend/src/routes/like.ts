@@ -51,6 +51,24 @@ export async function toggleLike(req: Request): Promise<Response> {
           user: { connect: { id: userId } },
         },
       });
+
+      const post = await prisma.post.findUnique({
+        where: { id: postId },
+        select: { authorId: true },
+      });
+
+      if (post && post.authorId !== userId) {
+        await prisma.notification.create({
+          data: {
+            type: "like",
+            senderId: userId,
+            recipientId: post.authorId,
+            postId: postId,
+            message: `Пользователь с ID ${userId} поставил лайк вашему посту.`,
+          },
+        });
+      }
+
       const likeCount = await prisma.like.count({ where: { post: { id: postId } } });
       return new Response(JSON.stringify({ liked: true, likeCount }), {
         status: 200,

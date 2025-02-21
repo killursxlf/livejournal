@@ -86,6 +86,15 @@ export async function toggleFollow(req: Request): Promise<Response> {
         },
       });
 
+      await prisma.notification.create({
+        data: {
+          type: "follow",
+          senderId: userId,
+          recipientId: followingId,
+          message: `Пользователь с ID ${userId} начал подписываться на вас.`,
+        },
+      });
+
       const followerCount = await prisma.follows.count({
         where: { followingId },
       });
