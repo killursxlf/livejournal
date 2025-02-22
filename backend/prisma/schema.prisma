@@ -13,7 +13,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-
 model User {
   id        String   @id @default(uuid())
   email     String   @unique
@@ -23,13 +22,59 @@ model User {
   bio       String?  
   avatar    String?
   createdAt DateTime @default(now())
+
   posts     Post[]
   likes     Like[]
   comments  Comment[]
 
-  following Follows[] @relation("following")
-  followers Follows[] @relation("followers")
-  savedPosts SavedPost[]
+  following   Follows[] @relation("following")
+  followers   Follows[] @relation("followers")
+  savedPosts  SavedPost[]
+
+  chatParticipants ChatParticipant[]
+  messages         Message[]
+}
+
+model Chat {
+  id            String  @id @default(uuid())
+  type          ChatType
+  createdAt     DateTime @default(now())
+
+  messages      Message[]
+  participants  ChatParticipant[]
+}
+
+model Message {
+  id          String   @id @default(uuid())
+  chatId      String
+  senderId    String
+  content     String
+  createdAt   DateTime @default(now())
+
+  chat        Chat     @relation(fields: [chatId], references: [id])
+  sender      User     @relation(fields: [senderId], references: [id])
+
+  forwardedFromId String?
+  isRead Boolean @default(false)
+  forwardedFrom   Message? @relation("ForwardedMessages", fields: [forwardedFromId], references: [id])
+  forwardedTo     Message[] @relation("ForwardedMessages")
+
+  @@index([chatId])
+}
+
+model ChatParticipant {
+  userId String
+  chatId String
+
+  user  User @relation(fields: [userId], references: [id])
+  chat  Chat @relation(fields: [chatId], references: [id])
+
+  @@id([userId, chatId])
+}
+
+enum ChatType {
+  PRIVATE
+  GROUP
 }
 
 model Post {
