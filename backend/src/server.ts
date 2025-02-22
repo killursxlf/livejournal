@@ -90,7 +90,7 @@ serve({
           response = await chatHandler.forwardMessage(req);
         } 
         // ✅ Новый эндпоинт для получения списка чатов пользователя
-        else if (url.pathname.startsWith("/api/user/") && url.pathname.endsWith("/chat") && req.method === "GET") {
+        else if (url.pathname.startsWith("/api/user/") && url.pathname.endsWith("/chats") && req.method === "GET") {
           response = await chatHandler.getUserChats(req);
         }
 
