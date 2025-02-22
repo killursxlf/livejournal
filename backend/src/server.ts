@@ -25,9 +25,9 @@ import {
   getNotifications, 
   markNotificationsAsRead 
 } from "./routes/notifications";
+import { chatHandler } from "./routes/chat"; // ✅ Подключаем обработчик чатов
 
 serve({
-  hostname: "0.0.0.0",
   port: 3000,
   async fetch(req: Request) {
     const url = new URL(req.url);
@@ -77,7 +77,24 @@ serve({
           response = await getAllTags(req);
         } else if (url.pathname === "/api/user" && req.method === "GET") {
           response = await getUser(req);
-        } else {
+        } 
+
+        // ✅ API сообщений (чаты)
+        else if (url.pathname.startsWith("/api/chat/") && url.pathname.endsWith("/message") && req.method === "POST") {
+          response = await chatHandler.sendMessage(req);
+        } else if (url.pathname.startsWith("/api/chat/") && url.pathname.endsWith("/messages") && req.method === "GET") {
+          response = await chatHandler.getMessages(req);
+        } else if (url.pathname.startsWith("/api/chat/") && url.pathname.endsWith("/read") && req.method === "PATCH") {
+          response = await chatHandler.markAsRead(req);
+        } else if (url.pathname.startsWith("/api/chat/") && url.pathname.endsWith("/forward") && req.method === "POST") {
+          response = await chatHandler.forwardMessage(req);
+        } 
+        // ✅ Новый эндпоинт для получения списка чатов пользователя
+        else if (url.pathname.startsWith("/api/user/") && url.pathname.endsWith("/chat") && req.method === "GET") {
+          response = await chatHandler.getUserChats(req);
+        }
+
+        else {
           const user = await verifyToken(req);
           if (!user) {
             response = new Response(JSON.stringify({ error: "Не авторизован" }), {
