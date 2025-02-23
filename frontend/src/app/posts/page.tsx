@@ -16,10 +16,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 interface CommentData {
-  id: number;
+  id: string;
   content: string;
   createdAt: string;
   author: {
+    id: string;
     username: string;
     name: string;
     avatar?: string;
@@ -41,6 +42,7 @@ interface Post {
   content: string;
   createdAt: string;
   author: {
+    id: string,
     username: string;
     name: string;
     avatar?: string;
@@ -195,6 +197,8 @@ export default function PostsPage() {
                   title={post.title}
                   content={post.content}
                   author={{
+                    id: post.author.id,
+                    username: post.author.username,
                     name: post.author.name,
                     avatar: post.author.avatar,
                   }}
@@ -212,6 +216,8 @@ export default function PostsPage() {
                   comments={
                     post.comments?.map((comment) => ({
                       id: comment.id,
+                      authorUserName: comment.author.username,
+                      authorId: comment.author.id,
                       content: comment.content,
                       date: comment.createdAt,
                       author: comment.author.name,

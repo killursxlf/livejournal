@@ -25,6 +25,7 @@ import {
   getNotifications, 
   markNotificationsAsRead 
 } from "./routes/notifications";
+import { createComplaint, updateComplaintStatus, getComplaints } from "./routes/complaints";
 import { chatHandler } from "./routes/chat"; // ✅ Подключаем обработчик чатов
 
 serve({
@@ -130,6 +131,12 @@ serve({
             response = await createNotification(req);
           } else if (url.pathname === "/api/notifications" && req.method === "PUT") {
             response = await markNotificationsAsRead(req);
+          } else if (url.pathname === "/api/complaints" && req.method === "GET") {
+            response = await getComplaints(req);
+          } else if (url.pathname === "/api/complaints" && req.method === "POST") {
+            response = await createComplaint(req);
+          } else if (url.pathname === "/api/complaints" && req.method === "PUT") {
+            response = await updateComplaintStatus(req);
           } else {
             response = new Response("Страница не найдена", { status: 404 });
           }

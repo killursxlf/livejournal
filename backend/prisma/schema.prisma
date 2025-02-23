@@ -14,61 +14,62 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  name      String?
-  username  String   @unique
-  password  String   @db.VarChar(255)
-  bio       String?  
-  avatar    String?
-  createdAt DateTime @default(now())
-
-  posts     Post[]
-  likes     Like[]
-  comments  Comment[]
-
-  following   Follows[] @relation("following")
-  followers   Follows[] @relation("followers")
-  savedPosts  SavedPost[]
-
-  chatParticipants ChatParticipant[]
-  messages         Message[]
+  id                String            @id @default(uuid())
+  email             String            @unique
+  name              String?
+  username          String            @unique
+  password          String            @db.VarChar(255)
+  bio               String?
+  avatar            String?
+  createdAt         DateTime          @default(now())
+  
+  posts             Post[]
+  likes             Like[]
+  comments          Comment[]
+  complaints        Complaint[]
+  
+  following         Follows[]         @relation("following")
+  followers         Follows[]         @relation("followers")
+  savedPosts        SavedPost[]
+  
+  chatParticipants  ChatParticipant[]
+  messages          Message[]
 }
 
 model Chat {
-  id            String  @id @default(uuid())
+  id            String   @id @default(uuid())
   type          ChatType
   createdAt     DateTime @default(now())
-
+  
   messages      Message[]
   participants  ChatParticipant[]
 }
 
 model Message {
-  id          String   @id @default(uuid())
-  chatId      String
-  senderId    String
-  content     String
-  createdAt   DateTime @default(now())
-
-  chat        Chat     @relation(fields: [chatId], references: [id])
-  sender      User     @relation(fields: [senderId], references: [id])
-
+  id              String   @id @default(uuid())
+  chatId          String
+  senderId        String
+  content         String
+  createdAt       DateTime @default(now())
+  
+  chat            Chat     @relation(fields: [chatId], references: [id])
+  sender          User     @relation(fields: [senderId], references: [id])
+  
   forwardedFromId String?
-  isRead Boolean @default(false)
+  isRead          Boolean  @default(false)
   forwardedFrom   Message? @relation("ForwardedMessages", fields: [forwardedFromId], references: [id])
   forwardedTo     Message[] @relation("ForwardedMessages")
-
+  
   @@index([chatId])
 }
 
 model ChatParticipant {
   userId String
   chatId String
-
+  
   user  User @relation(fields: [userId], references: [id])
   chat  Chat @relation(fields: [chatId], references: [id])
-
+  
   @@id([userId, chatId])
 }
 
@@ -78,38 +79,39 @@ enum ChatType {
 }
 
 model Post {
-  id        String     @id @default(uuid())
-  title     String
-  content   String?
-  authorId  String
-  author    User       @relation(fields: [authorId], references: [id])
-  status    PostStatus @default(DRAFT)
-  publicationType PublicationType  @default(ARTICLE)
-  postVersions    PostVersion[]
-  publishAt       DateTime?
-
-  postTags  PostTag[]
-  likes     Like[]
-  comments  Comment[]
-  createdAt DateTime   @default(now())
-  savedBy   SavedPost[]
+  id                String           @id @default(uuid())
+  title             String
+  content           String?
+  authorId          String
+  author            User             @relation(fields: [authorId], references: [id])
+  status            PostStatus       @default(DRAFT)
+  publicationType   PublicationType  @default(ARTICLE)
+  postVersions      PostVersion[]
+  publishAt         DateTime?
+  
+  postTags          PostTag[]
+  likes             Like[]
+  comments          Comment[]
+  complaints        Complaint[]
+  createdAt         DateTime         @default(now())
+  savedBy           SavedPost[]
 }
 
 model Tag {
-  id   String   @id @default(uuid())
-  name String   @unique
-
-  postTags PostTag[]
+  id        String    @id @default(uuid())
+  name      String    @unique
+  
+  postTags  PostTag[]
 }
 
 model PostTag {
   postId String
   tagId  String
-
-  post Post @relation(fields: [postId], references: [id])
-  tag  Tag  @relation(fields: [tagId], references: [id])
-
-  @@id([postId, tagId]) 
+  
+  post   Post @relation(fields: [postId], references: [id])
+  tag    Tag  @relation(fields: [tagId], references: [id])
+  
+  @@id([postId, tagId])
 }
 
 model Like {
@@ -117,41 +119,42 @@ model Like {
   postId    String
   userId    String
   createdAt DateTime @default(now())
-
+  
   post      Post     @relation(fields: [postId], references: [id])
   user      User     @relation(fields: [userId], references: [id])
-
+  
   @@unique([postId, userId])
 }
 
 model Comment {
-  id        String   @id @default(uuid())
-  content   String
-  postId    String
-  userId    String
-  createdAt DateTime @default(now())
-
-  post      Post     @relation(fields: [postId], references: [id])
-  user      User     @relation(fields: [userId], references: [id])
+  id         String    @id @default(uuid())
+  content    String
+  postId     String
+  userId     String
+  createdAt  DateTime  @default(now())
+  
+  post       Post      @relation(fields: [postId], references: [id])
+  user       User      @relation(fields: [userId], references: [id])
+  complaints Complaint[]
 }
 
 model Follows {
   followerId  String
   followingId String
-
+  
   follower    User @relation("following", fields: [followerId], references: [id])
   following   User @relation("followers", fields: [followingId], references: [id])
-
+  
   @@id([followerId, followingId])
 }
 
 model SavedPost {
   userId String
   postId String
-
+  
   user   User @relation(fields: [userId], references: [id])
   post   Post @relation(fields: [postId], references: [id])
-
+  
   @@id([userId, postId])
 }
 
@@ -160,7 +163,7 @@ model PostVersion {
   postId    String
   title     String
   content   String?
-  editorId  String?             // если нужно хранить, кто редактировал
+  editorId  String?   // если нужно хранить, кто редактировал
   createdAt DateTime  @default(now())
   
   post      Post     @relation(fields: [postId], references: [id])
@@ -179,11 +182,35 @@ enum PublicationType {
 
 model Notification {
   id           String   @id @default(uuid())
-  type         String   
-  senderId     String   
-  recipientId  String   
-  postId       String? 
-  message      String   
+  type         String
+  senderId     String
+  recipientId  String
+  postId       String?
+  message      String
   createdAt    DateTime @default(now())
   isRead       Boolean  @default(false)
+}
+
+model Complaint {
+  id          String           @id @default(uuid())
+  reason      String
+  description String?
+  status      ComplaintStatus  @default(NEW)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  
+  postId      String?
+  commentId   String?
+  
+  userId      String
+  
+  user        User      @relation(fields: [userId], references: [id])
+  post        Post?     @relation(fields: [postId], references: [id])
+  comment     Comment?  @relation(fields: [commentId], references: [id])
+}
+
+enum ComplaintStatus {
+  NEW
+  REVIEWED
+  REJECTED
 }
