@@ -21,6 +21,8 @@ model User {
   password          String            @db.VarChar(255)
   bio               String?
   avatar            String?
+  language          String?   
+  location          String?
   createdAt         DateTime          @default(now())
   
   posts             Post[]
@@ -34,6 +36,7 @@ model User {
   
   chatParticipants  ChatParticipant[]
   messages          Message[]
+  moderator         Moderator?
 }
 
 model Chat {
@@ -163,7 +166,7 @@ model PostVersion {
   postId    String
   title     String
   content   String?
-  editorId  String?   // если нужно хранить, кто редактировал
+  editorId  String?   
   createdAt DateTime  @default(now())
   
   post      Post     @relation(fields: [postId], references: [id])
@@ -213,4 +216,10 @@ enum ComplaintStatus {
   NEW
   REVIEWED
   REJECTED
+}
+
+model Moderator {
+  id     String  @id @default(uuid())
+  userId String  @unique
+  user   User    @relation(fields: [userId], references: [id])
 }

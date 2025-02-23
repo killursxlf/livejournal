@@ -65,6 +65,16 @@ export async function updateComplaintStatus(req: Request): Promise<Response> {
       );
     }
 
+    const moderator = await prisma.moderator.findUnique({
+      where: { userId: tokenUserId },
+    });
+    if (!moderator) {
+      return new Response(
+        JSON.stringify({ error: "Доступ запрещён" }),
+        { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders() } }
+      );
+    }
+
     const { complaintId, status } = await req.json();
     if (!complaintId) {
       return new Response(
@@ -92,33 +102,43 @@ export async function updateComplaintStatus(req: Request): Promise<Response> {
 }
 
 export async function getComplaints(req: Request): Promise<Response> {
-    try {
-      const tokenData = await verifyToken(req);
-      const tokenUserId = tokenData?.user?.id || tokenData?.id;
-      if (!tokenUserId) {
-        return new Response(
-          JSON.stringify({ error: "Не авторизован" }),
-          { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders() } }
-        );
-      }
-  
-      const complaints = await prisma.complaint.findMany({
-        include: {
-          user: true,
-          post: true,
-          comment: true,
-        },
-      });
-  
-      return new Response(JSON.stringify(complaints), {
-        status: 200,
-        headers: { "Content-Type": "application/json", ...corsHeaders() },
-      });
-    } catch (error: any) {
-      console.error("Ошибка в getComplaints:", error);
-      return new Response(JSON.stringify({ error: "Server error" }), {
-        status: 500,
-        headers: { "Content-Type": "application/json", ...corsHeaders() },
-      });
+  try {
+    const tokenData = await verifyToken(req);
+    const tokenUserId = tokenData?.user?.id || tokenData?.id;
+    if (!tokenUserId) {
+      return new Response(
+        JSON.stringify({ error: "Не авторизован" }),
+        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders() } }
+      );
     }
+
+    const moderator = await prisma.moderator.findUnique({
+      where: { userId: tokenUserId },
+    });
+    if (!moderator) {
+      return new Response(
+        JSON.stringify({ error: "Доступ запрещён" }),
+        { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders() } }
+      );
+    }
+
+    const complaints = await prisma.complaint.findMany({
+      include: {
+        user: true,
+        post: true,
+        comment: true,
+      },
+    });
+
+    return new Response(JSON.stringify(complaints), {
+      status: 200,
+      headers: { "Content-Type": "application/json", ...corsHeaders() },
+    });
+  } catch (error: any) {
+    console.error("Ошибка в getComplaints:", error);
+    return new Response(JSON.stringify({ error: "Server error" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json", ...corsHeaders() },
+    });
+  }
 }

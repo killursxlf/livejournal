@@ -53,7 +53,7 @@ export async function getUser(req: Request): Promise<Response> {
             comments: {
               include: {
                 user: {
-                  select: { username: true, name: true, avatar: true },
+                  select: { id: true, username: true, name: true, avatar: true },
                 },
               },
             },
@@ -86,6 +86,7 @@ export async function getUser(req: Request): Promise<Response> {
 
     const mapPost = (post: any) => {
       const author = post.author || {
+        id: user.id,
         username: user.username,
         name: user.name,
         avatar: user.avatar,
@@ -98,6 +99,7 @@ export async function getUser(req: Request): Promise<Response> {
         createdAt: post.createdAt,
         publishAt: post.publishAt, 
         author: {
+          id: author.id,
           username: author.username,
           name: author.name,
           avatar: author.avatar,
@@ -112,6 +114,7 @@ export async function getUser(req: Request): Promise<Response> {
           content: comment.content,
           createdAt: comment.createdAt,
           author: {
+            id: comment.user?.id,
             username: comment.user?.username || "Unknown",
             name: comment.user?.name || "Unknown",
             avatar: comment.user?.avatar,
@@ -158,12 +161,12 @@ export async function getUser(req: Request): Promise<Response> {
         },
       },
       include: {
-        author: { select: { username: true, name: true, avatar: true } },
+        author: { select: { id: true, username: true, name: true, avatar: true } },
         postTags: { include: { tag: true } },
         likes: { select: { userId: true } },
         comments: {
           include: {
-            user: { select: { username: true, name: true, avatar: true } },
+            user: { select: { id: true, username: true, name: true, avatar: true } },
           },
         },
         savedBy: true,
@@ -185,7 +188,7 @@ export async function getUser(req: Request): Promise<Response> {
         likes: { select: { userId: true } },
         comments: {
           include: {
-            user: { select: { username: true, name: true, avatar: true } },
+            user: { select: { id: true, username: true, name: true, avatar: true } },
           },
         },
         savedBy: true,
@@ -221,6 +224,8 @@ export async function getUser(req: Request): Promise<Response> {
       email: user.email,
       name: user.name,
       bio: user.bio,
+      language: user.language,
+      location: user.location,
       avatar: user.avatar,
       createdAt: user.createdAt,
       followerCount: user.followers ? user.followers.length : 0,
@@ -358,6 +363,8 @@ export async function updateProfile(req: Request): Promise<Response> {
       name?: string; 
       bio?: string; 
       username?: string; 
+      language?: string;
+      location?: string;
       avatar?: string 
     } = {};
     
@@ -371,12 +378,16 @@ export async function updateProfile(req: Request): Promise<Response> {
       const name = formData.get("name") as string | null;
       const bio = formData.get("bio") as string | null;
       const newUsername = formData.get("username") as string | null;
+      const language = formData.get("language") as string | null;
+      const location = formData.get("location") as string | null;
       avatarFile = formData.get("avatar") as File | null;
 
       if (email) updateData.email = email;
       if (name) updateData.name = name;
       if (bio) updateData.bio = bio;
       if (newUsername) updateData.username = newUsername;
+      if (language) updateData.language = language;
+      if (location) updateData.location = location;
     } else {
       const body = await req.json();
       email = body.email;
@@ -384,6 +395,8 @@ export async function updateProfile(req: Request): Promise<Response> {
       if (body.bio !== undefined) updateData.bio = body.bio;
       if (body.username !== undefined) updateData.username = body.username;
       if (body.email !== undefined) updateData.email = body.email;
+      if (body.language !== undefined) updateData.language = body.language;
+      if (body.location !== undefined) updateData.location = body.location;
     }
 
     if (!email || typeof email !== "string") {
@@ -436,7 +449,7 @@ export async function updateProfile(req: Request): Promise<Response> {
       JSON.stringify({ message: "Профиль обновлён", ...updateData }),
       { headers: corsHeaders() }
     );
-  } catch (error) {
+  } catch (error: any) {
     console.error("Ошибка обновления профиля:", error);
     return new Response(
       JSON.stringify({ error: "Ошибка обновления профиля" }),
@@ -444,6 +457,7 @@ export async function updateProfile(req: Request): Promise<Response> {
     );
   }
 }
+
   
 export async function getUserWithPosts(req: Request): Promise<Response> {
   try {
