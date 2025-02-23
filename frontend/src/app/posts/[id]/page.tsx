@@ -36,6 +36,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { AnchorHTMLAttributes, ImgHTMLAttributes  } from "react";
+import NextImage from "next/image";
 
 type CommentType = {
   id: string;
@@ -100,7 +102,113 @@ const PostPage = () => {
   const [newComment, setNewComment] = useState<string>("");
   const [showAuthMessage, setShowAuthMessage] = useState<boolean>(false);
   const { toast } = useToast();
+  const renderMedia = (url: string) => {
+    const lowerUrl = url.toLowerCase();
+  
+    // Обработка изображений
+    if (/\.(jpg|jpeg|png|gif)$/.test(lowerUrl)) {
+      return (
+        <div className="flex justify-center">
+          <NextImage
+            loader={customLoader}
+            src={url}
+            alt="media"
+            width={600}
+            height={400}
+            className="rounded"
+          />
+        </div>
+      );
+    }
+  
+    // Обработка видео файлов
+    if (/\.(mp4|webm|ogg)$/.test(lowerUrl)) {
+      return (
+        <video controls className="max-w-full rounded">
+          <source src={url} />
+          Ваш браузер не поддерживает видео.
+        </video>
+      );
+    }
+  
+    // Обработка ссылок на YouTube
+    if (url.includes("youtube.com") || url.includes("youtu.be")) {
+      // Преобразование URL в формат embed для YouTube
+      let videoId = "";
+      const youtubeRegex = /(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([^\s&]+)/;
+      const match = url.match(youtubeRegex);
+      if (match && match[1]) {
+        videoId = match[1];
+      }
+      const embedUrl = `https://www.youtube.com/embed/${videoId}`;
+      return (
+        <div className="relative pb-[56.25%] h-0 overflow-hidden rounded">
+          <iframe
+            className="absolute top-0 left-0 w-full h-full"
+            src={embedUrl}
+            title="YouTube video player"
+            frameBorder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+          ></iframe>
+        </div>
+      );
+    }
+  
+    // Если не подходит ни один из случаев, просто возвращаем ссылку
+    return (
+      <a href={url} target="_blank" rel="noopener noreferrer">
+        {url}
+      </a>
+    );
+  };
+  
+  // Кастомный компонент для ссылок
+  type CustomLinkProps = AnchorHTMLAttributes<HTMLAnchorElement> & {
+    children?: React.ReactNode;
+  };
+  
+  const CustomLink: React.FC<CustomLinkProps> = ({ href, children, ...props }) => {
+    if (href && /\.(jpg|jpeg|png|gif|mp4|webm|ogg)$/i.test(href)) {
+      return <>{renderMedia(href)}</>;
+    }
+    return (
+      <a href={href} {...props}>
+        {children}
+      </a>
+    );
+  };
 
+  const customLoader = ({ src }: { src: string }) => {
+    return src;
+  };
+  // Кастомный компонент для изображений
+  type CustomImageProps = ImgHTMLAttributes<HTMLImageElement>;
+  const CustomImage: React.FC<CustomImageProps> = ({ src, alt = "", ...props }) => {
+    if (typeof src === "string") {
+      // Если ссылка на YouTube, используем renderMedia для рендеринга видео
+      if (src.includes("youtube.com") || src.includes("youtu.be")) {
+        return <>{renderMedia(src)}</>;
+      }
+      return (
+        <div className="flex justify-center">
+          <NextImage 
+            loader={customLoader}
+            src={src}
+            alt={alt} 
+            width={600}
+            height={400}
+            className="rounded"
+          />
+        </div>
+      );
+    }
+    return <img alt={alt} {...props} />;
+  };
+  
+  
+  
+  
   // Состояния для жалобы
   const [reportDialogOpen, setReportDialogOpen] = useState<boolean>(false);
   const [selectedReason, setSelectedReason] = useState<string>("");
@@ -443,7 +551,7 @@ const PostPage = () => {
             </CardHeader>
             <CardContent>
               <div className="prose prose-invert max-w-none">
-                <ReactMarkdown>{post.content}</ReactMarkdown>
+                <ReactMarkdown components={{ a: CustomLink, img: CustomImage }}>{post.content}</ReactMarkdown>
               </div>
               <div className="flex flex-wrap gap-2 mt-6">
                 {post.postTags.map((pt, index) => (
