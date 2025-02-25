@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { signIn } from "next-auth/react";
+import { useEffect, useState } from "react";
+import { signIn, useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,12 +11,18 @@ import Link from "next/link";
 import { FaGoogle } from "react-icons/fa";
 
 export default function Login() {
-
+  const { data: session, status } = useSession();
+  const router = useRouter();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
 
+  useEffect(() => {
+    if (status === "authenticated" && session?.user?.id) {
+      router.push(`/profile/${session.user.username}`);
+    }
+  }, [status, session, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,7 +31,7 @@ export default function Login() {
 
     const result = await signIn("credentials", {
       redirect: false,
-      identifier, 
+      identifier,
       password,
     });
 
@@ -35,7 +42,6 @@ export default function Login() {
       return;
     }
 
-    console.log("Логин успешен, ждем обновления сессии...");
   };
 
   return (

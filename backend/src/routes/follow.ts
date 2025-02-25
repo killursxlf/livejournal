@@ -86,12 +86,18 @@ export async function toggleFollow(req: Request): Promise<Response> {
         },
       });
 
+      const sender = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { name: true, username: true }
+      });      
+
       await prisma.notification.create({
         data: {
           type: "follow",
           senderId: userId,
+          senderName: sender?.username,
           recipientId: followingId,
-          message: `Пользователь с ID ${userId} начал подписываться на вас.`,
+          message: `Пользователь ${sender?.name} начал подписываться на вас.`,
         },
       });
 

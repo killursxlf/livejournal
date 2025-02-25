@@ -332,16 +332,17 @@ export async function createPost(req: Request) {
     const followers = await prisma.follows.findMany({
       where: { followingId: user.id },
     });
-
+  
     await Promise.all(
       followers.map(async (follower) => {
         await prisma.notification.create({
           data: {
             type: "new_post",
             senderId: user.id,
+            senderName: user.username,
             recipientId: follower.followerId,
             postId: post.id,
-            message: `Новый пост от ${user.name || user.email}.`,
+            message: `Новый пост от ${user.name}.`,
           },
         });
       })

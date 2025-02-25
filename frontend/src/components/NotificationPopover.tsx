@@ -6,10 +6,14 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import { useRouter } from "next/navigation";
 
 interface NotificationType {
   id: string;
   message: string;
+  senderName: string;
+  senderId: string; // Добавлено для ссылки на профиль отправителя
+  type: string;
   createdAt: string; 
   isRead: boolean;
 }
@@ -19,6 +23,7 @@ const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000
 export function NotificationsPopover() {
   const [notifications, setNotifications] = useState<NotificationType[]>([]);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
     async function fetchNotifications() {
@@ -65,6 +70,34 @@ export function NotificationsPopover() {
     }
   }
 
+  async function handleNotificationClick(notificationId: string, senderName: string) {
+    try {
+      const notification = notifications.find(n => n.id === notificationId);
+      // Если уведомление ещё не прочитано – помечаем его
+      if (notification && !notification.isRead) {
+        const res = await fetch(`${backendUrl}/api/notifications`, {
+          method: "PUT",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ notificationIds: [notificationId] }),
+        });
+        if (res.ok) {
+          setNotifications((prev) =>
+            prev.map((n) =>
+              n.id === notificationId ? { ...n, isRead: true } : n
+            )
+          );
+        } else {
+          console.error("Ошибка при пометке уведомления как прочитанного");
+        }
+      }
+      // Переход на страницу профиля отправителя
+      router.push(`/profile/${senderName}`);
+    } catch (error) {
+      console.error("Ошибка при обработке уведомления:", error);
+    }
+  }
+
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -91,13 +124,14 @@ export function NotificationsPopover() {
               notifications.map((notification) => (
                 <button
                   key={notification.id}
+                  onClick={() => handleNotificationClick(notification.id, notification.senderName)}
                   className={cn(
-                    "flex flex-col gap-1 rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-accent",
+                    "flex flex-col gap-1 rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-accent w-full",
                     !notification.isRead && "bg-muted"
                   )}
                 >
                   <div className="flex items-center gap-2">
-                    <span className="font-medium">{notification.message}</span>
+                    <span>{notification.message}</span>
                     {!notification.isRead && (
                       <span className="h-2 w-2 rounded-full bg-primary" />
                     )}

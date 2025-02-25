@@ -57,14 +57,21 @@ export async function toggleLike(req: Request): Promise<Response> {
         select: { authorId: true },
       });
 
+      const sender = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { name: true, username: true }
+      });      
+
+
       if (post && post.authorId !== userId) {
         await prisma.notification.create({
           data: {
             type: "like",
             senderId: userId,
+            senderName: sender?.username,
             recipientId: post.authorId,
             postId: postId,
-            message: `Пользователь с ID ${userId} поставил лайк вашему посту.`,
+            message: `Пользователь ${sender?.name} поставил лайк вашему посту.`,
           },
         });
       }
