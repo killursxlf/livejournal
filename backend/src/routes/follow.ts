@@ -91,13 +91,17 @@ export async function toggleFollow(req: Request): Promise<Response> {
         select: { name: true, username: true }
       });      
 
+      if (!sender) {
+        throw new Error("Пользователь не найден");
+      }
+
       await prisma.notification.create({
         data: {
           type: "follow",
           senderId: userId,
-          senderName: sender?.username,
+          senderName: sender.username,
           recipientId: followingId,
-          message: `Пользователь ${sender?.name} начал подписываться на вас.`,
+          message: `Пользователь ${sender.name} начал подписываться на вас.`,
         },
       });
 

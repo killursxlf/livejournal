@@ -1,9 +1,6 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -37,6 +34,9 @@ model User {
   chatParticipants  ChatParticipant[]
   messages          Message[]
   moderator         Moderator?
+  
+  communityMembers  CommunityMember[]
+  ownedCommunities  Community[]       @relation("OwnerCommunities")
 }
 
 model Chat {
@@ -87,6 +87,10 @@ model Post {
   content           String?
   authorId          String
   author            User             @relation(fields: [authorId], references: [id])
+  
+  communityId       String?          
+  community         Community?       @relation(fields: [communityId], references: [id])
+  
   status            PostStatus       @default(DRAFT)
   publicationType   PublicationType  @default(ARTICLE)
   postVersions      PostVersion[]
@@ -223,4 +227,47 @@ model Moderator {
   id     String  @id @default(uuid())
   userId String  @unique
   user   User    @relation(fields: [userId], references: [id])
+}
+
+
+model Community {
+  id          String    @id @default(uuid())
+  name        String
+  description String?
+  avatar      String?   
+  background  String?   
+  rules       String?   @db.Text  
+  createdAt   DateTime  @default(now())
+  ownerId     String
+  owner       User      @relation("OwnerCommunities", fields: [ownerId], references: [id])
+  
+  categoryId  String?
+  category    Category? @relation(fields: [categoryId], references: [id])
+  
+  posts       Post[]
+  members     CommunityMember[]
+}
+
+model CommunityMember {
+  communityId String
+  userId      String
+  role        CommunityRole      @default(MEMBER)
+  joinedAt    DateTime           @default(now())
+  
+  community   Community          @relation(fields: [communityId], references: [id])
+  user        User               @relation(fields: [userId], references: [id])
+  
+  @@id([communityId, userId])
+}
+
+enum CommunityRole {
+  MEMBER
+  ADMIN
+  MODERATOR
+}
+
+model Category {
+  id           String       @id @default(uuid())
+  name         String       @unique
+  communities  Community[]
 }

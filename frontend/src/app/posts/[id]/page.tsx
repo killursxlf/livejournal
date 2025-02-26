@@ -70,7 +70,6 @@ type PostType = {
 
 const backendURL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000";
 
-// Возможные причины жалобы
 const REPORT_REASONS = [
   { id: "spam", label: "Спам" },
   { id: "inappropriate", label: "Неприемлемый контент" },
@@ -93,7 +92,7 @@ interface ComplaintSubmission {
 }
 
 const PostPage = () => {
-  const params = useParams() as { id: string }; // Приводим id к типу string
+  const params = useParams() as { id: string };
   const router = useRouter();
   const { id } = params;
   const { data: session } = useSession();
@@ -105,7 +104,6 @@ const PostPage = () => {
   const renderMedia = (url: string) => {
     const lowerUrl = url.toLowerCase();
   
-    // Обработка изображений
     if (/\.(jpg|jpeg|png|gif)$/.test(lowerUrl)) {
       return (
         <div className="flex justify-center">
@@ -121,7 +119,6 @@ const PostPage = () => {
       );
     }
   
-    // Обработка видео файлов
     if (/\.(mp4|webm|ogg)$/.test(lowerUrl)) {
       return (
         <video controls className="max-w-full rounded">
@@ -131,9 +128,7 @@ const PostPage = () => {
       );
     }
   
-    // Обработка ссылок на YouTube
     if (url.includes("youtube.com") || url.includes("youtu.be")) {
-      // Преобразование URL в формат embed для YouTube
       let videoId = "";
       const youtubeRegex = /(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([^\s&]+)/;
       const match = url.match(youtubeRegex);
@@ -155,7 +150,6 @@ const PostPage = () => {
       );
     }
   
-    // Если не подходит ни один из случаев, просто возвращаем ссылку
     return (
       <a href={url} target="_blank" rel="noopener noreferrer">
         {url}
@@ -163,7 +157,6 @@ const PostPage = () => {
     );
   };
   
-  // Кастомный компонент для ссылок
   type CustomLinkProps = AnchorHTMLAttributes<HTMLAnchorElement> & {
     children?: React.ReactNode;
   };
@@ -182,11 +175,9 @@ const PostPage = () => {
   const customLoader = ({ src }: { src: string }) => {
     return src;
   };
-  // Кастомный компонент для изображений
   type CustomImageProps = ImgHTMLAttributes<HTMLImageElement>;
   const CustomImage: React.FC<CustomImageProps> = ({ src, alt = "", ...props }) => {
     if (typeof src === "string") {
-      // Если ссылка на YouTube, используем renderMedia для рендеринга видео
       if (src.includes("youtube.com") || src.includes("youtu.be")) {
         return <>{renderMedia(src)}</>;
       }
@@ -207,9 +198,6 @@ const PostPage = () => {
   };
   
   
-  
-  
-  // Состояния для жалобы
   const [reportDialogOpen, setReportDialogOpen] = useState<boolean>(false);
   const [selectedReason, setSelectedReason] = useState<string>("");
   const [additionalInfo, setAdditionalInfo] = useState("");
@@ -367,13 +355,11 @@ const PostPage = () => {
     }
   };
 
-  // Для жалобы на пост
   const handleReportPost = () => {
     setSelectedComplaintTarget({ type: "post", id });
     setReportDialogOpen(true);
   };
 
-  // Для жалобы на комментарий
   const handleReportComment = (commentId: string) => {
     setSelectedComplaintTarget({ type: "comment", id: commentId });
     setReportDialogOpen(true);

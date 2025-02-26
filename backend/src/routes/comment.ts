@@ -65,16 +65,19 @@ export async function addComment(req: Request): Promise<Response> {
       select: { name: true, username: true }
     });      
 
+    if (!sender) {
+      throw new Error("Пользователь не найден");
+    }
 
     if (post && post.authorId !== userId) {
       await prisma.notification.create({
         data: {
           type: "comment",
           senderId: userId,
-          senderName: sender?.username,
+          senderName: sender.username,
           recipientId: post.authorId,
           postId: postId,
-          message: `Пользователь ${sender?.name} прокомментировал ваш пост.`,
+          message: `Пользователь ${sender.name} прокомментировал ваш пост.`,
         },
       });
     }

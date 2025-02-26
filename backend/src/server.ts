@@ -26,7 +26,8 @@ import {
   markNotificationsAsRead 
 } from "./routes/notifications";
 import { createComplaint, updateComplaintStatus, getComplaints } from "./routes/complaints";
-import { chatHandler } from "./routes/chat"; // ✅ Подключаем обработчик чатов
+import { chatHandler } from "./routes/chat";
+import { createCommunity, getCommunity } from "./routes/community";
 
 serve({
   port: 3000,
@@ -78,10 +79,7 @@ serve({
           response = await getAllTags(req);
         } else if (url.pathname === "/api/user" && req.method === "GET") {
           response = await getUser(req);
-        } 
-
-        // ✅ API сообщений (чаты)
-        else if (url.pathname.startsWith("/api/chat/") && url.pathname.endsWith("/message") && req.method === "POST") {
+        } else if (url.pathname.startsWith("/api/chat/") && url.pathname.endsWith("/message") && req.method === "POST") {
           response = await chatHandler.sendMessage(req);
         } else if (url.pathname.startsWith("/api/chat/") && url.pathname.endsWith("/messages") && req.method === "GET") {
           response = await chatHandler.getMessages(req);
@@ -89,10 +87,10 @@ serve({
           response = await chatHandler.markAsRead(req);
         } else if (url.pathname.startsWith("/api/chat/") && url.pathname.endsWith("/forward") && req.method === "POST") {
           response = await chatHandler.forwardMessage(req);
-        } 
-        // ✅ Новый эндпоинт для получения списка чатов пользователя
-        else if (url.pathname.startsWith("/api/user/") && url.pathname.endsWith("/chats") && req.method === "GET") {
+        } else if (url.pathname.startsWith("/api/user/") && url.pathname.endsWith("/chats") && req.method === "GET") {
           response = await chatHandler.getUserChats(req);
+        } else if (url.pathname === "/api/community" && req.method === "GET") {
+          response = await getCommunity(req);
         }
 
         else {
@@ -137,6 +135,8 @@ serve({
             response = await createComplaint(req);
           } else if (url.pathname === "/api/complaints" && req.method === "PUT") {
             response = await updateComplaintStatus(req);
+          } else if (url.pathname === "/api/community/create" && req.method === "POST") {
+            response = await createCommunity(req);
           } else {
             response = new Response("Страница не найдена", { status: 404 });
           }

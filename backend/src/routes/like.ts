@@ -62,16 +62,19 @@ export async function toggleLike(req: Request): Promise<Response> {
         select: { name: true, username: true }
       });      
 
+      if (!sender) {
+        throw new Error("Пользователь не найден");
+      }
 
       if (post && post.authorId !== userId) {
         await prisma.notification.create({
           data: {
             type: "like",
             senderId: userId,
-            senderName: sender?.username,
+            senderName: sender.username,
             recipientId: post.authorId,
             postId: postId,
-            message: `Пользователь ${sender?.name} поставил лайк вашему посту.`,
+            message: `Пользователь ${sender.name} поставил лайк вашему посту.`,
           },
         });
       }

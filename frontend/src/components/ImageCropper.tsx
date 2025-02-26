@@ -16,6 +16,7 @@ interface ImageCropperProps {
   onCancel: () => void;
   minWidth?: number;
   minHeight?: number;
+  aspect?: number; // новый пропс для установки соотношения сторон
 }
 
 export default function ImageCropper({
@@ -24,6 +25,7 @@ export default function ImageCropper({
   onCancel,
   minWidth = 100,
   minHeight = 100,
+  aspect = 1, // по умолчанию 1:1
 }: ImageCropperProps) {
   const [crop, setCrop] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [zoom, setZoom] = useState<number>(1);
@@ -65,7 +67,7 @@ export default function ImageCropper({
             image={imageSrc}
             crop={crop}
             zoom={zoom}
-            aspect={1}
+            aspect={aspect} // Используем переданное соотношение
             onCropChange={setCrop}
             onZoomChange={setZoom}
             onCropComplete={onCropCompleteHandler}
