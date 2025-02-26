@@ -253,6 +253,7 @@ model CommunityMember {
   userId      String
   role        CommunityRole      @default(MEMBER)
   joinedAt    DateTime           @default(now())
+  notifications Boolean          @default(false)
   
   community   Community          @relation(fields: [communityId], references: [id])
   user        User               @relation(fields: [userId], references: [id])

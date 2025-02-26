@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { CurrentUser, Post, PostTag } from "@/types/type";
 import { PostCard } from "@/components/PostCard";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -15,53 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-interface CommentData {
-  id: string;
-  content: string;
-  createdAt: string;
-  author: {
-    id: string;
-    username: string;
-    name: string;
-    avatar?: string;
-  };
-}
 
-interface PostTag {
-  postId: string;
-  tagId: string;
-  tag: {
-    id: string;
-    name: string;
-  };
-}
-
-interface Post {
-  id: string;
-  title: string;
-  content: string;
-  createdAt: string;
-  author: {
-    id: string,
-    username: string;
-    name: string;
-    avatar?: string;
-  };
-  postTags?: PostTag[];
-  likeCount: number;
-  isLiked: boolean;
-  commentCount: number;
-  comments?: CommentData[];
-  isSaved: boolean;
-}
-
-interface CurrentUser {
-  id: string;
-  name: string;
-  username: string;
-  avatar?: string;
-  token?: string;
-}
 
 const backendURL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000";
 
@@ -69,15 +24,15 @@ export default function PostsPage() {
   const { data: session, status } = useSession();
   const userID = session?.user?.id ?? "";
 
-  const currentUser: CurrentUser | undefined = session?.user?.name
-    ? {
-        id: session.user.id,
-        username: session.user.username ?? "",
-        name: session.user.name,
-        avatar: session.user.image ?? undefined,
-        token: "",
-      }
-    : undefined;
+  const currentUser: CurrentUser | undefined = session?.user
+  ? {
+      id: session.user.id,
+      username: session.user.username ?? "",
+      name: session.user.name ?? "Anonymous", // значение по умолчанию, если name отсутствует
+      avatar: session.user.image ?? "/placeholder.svg",
+      token: "",
+    }
+  : undefined;
 
   const [posts, setPosts] = useState<Post[]>([]);
   const [error, setError] = useState<string>("");

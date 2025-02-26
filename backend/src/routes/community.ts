@@ -116,54 +116,184 @@ export async function createCommunity(req: Request): Promise<Response> {
 }
 
 export async function getCommunity(req: Request): Promise<Response> {
-    try {
-      // Ожидаем, что id сообщества передается как параметр запроса, например: /api/community?id=1
-      const url = new URL(req.url);
-      const communityId = url.searchParams.get("id");
-  
-      if (!communityId) {
-        return new Response(
-          JSON.stringify({ error: "Не указан идентификатор сообщества" }),
-          { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders() } }
-        );
-      }
-  
-      const community = await prisma.community.findUnique({
-        where: { id: communityId },
-        include: {
-          owner: true,
-          category: true,
-          // Получаем участников вместе с данными пользователя
-          members: {
-            include: {
-              user: true,
-            },
+  try {
+    // Извлекаем параметры из URL, например: /api/community?id=...&userId=...
+    const url = new URL(req.url);
+    const communityId = url.searchParams.get("id");
+    const userId = url.searchParams.get("userId");
+
+    if (!communityId) {
+      return new Response(
+        JSON.stringify({ error: "Не указан идентификатор сообщества" }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders() } }
+      );
+    }
+
+    const community = await prisma.community.findUnique({
+      where: { id: communityId },
+      include: {
+        owner: true,
+        category: true,
+        members: {
+          include: {
+            user: true,
           },
-          // Можно также получить посты с автором, если нужно
-          posts: {
-            include: {
-              author: true,
-            },
+        },
+        posts: {
+          include: {
+            author: true,
+          },
+        },
+      },
+    });
+
+    if (!community) {
+      return new Response(
+        JSON.stringify({ error: "Сообщество не найдено" }),
+        { status: 404, headers: { "Content-Type": "application/json", ...corsHeaders() } }
+      );
+    }
+
+    if (userId) {
+      const member = community.members.find((m: any) => m.user.id === userId);
+      (community as any).isFollow = !!member;
+      (community as any).notificationEnabled = member ? member.notifications : false;
+    }
+
+    return new Response(JSON.stringify(community), {
+      status: 200,
+      headers: { "Content-Type": "application/json", ...corsHeaders() },
+    });
+  } catch (error) {
+    console.error("Ошибка получения сообщества:", error);
+    return new Response(
+      JSON.stringify({ error: "Ошибка сервера" }),
+      { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders() } }
+    );
+  }
+}
+
+export async function toggleCommunitySubscription(req: Request): Promise<Response> {
+  try {
+    const tokenData = await verifyToken(req);
+    const tokenUserId = tokenData?.user?.id || tokenData?.id;
+    if (!tokenUserId) {
+      return new Response(
+        JSON.stringify({ error: "Не авторизован" }),
+        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders() } }
+      );
+    }
+
+    const { communityId } = await req.json();
+    if (!communityId) {
+      return new Response(
+        JSON.stringify({ error: "Не указан идентификатор сообщества" }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders() } }
+      );
+    }
+
+    const existingMember = await prisma.communityMember.findUnique({
+      where: {
+        communityId_userId: {
+          communityId,
+          userId: tokenUserId,
+        },
+      },
+    });
+
+    if (existingMember) {
+      await prisma.communityMember.delete({
+        where: {
+          communityId_userId: {
+            communityId,
+            userId: tokenUserId,
           },
         },
       });
-  
-      if (!community) {
-        return new Response(
-          JSON.stringify({ error: "Сообщество не найдено" }),
-          { status: 404, headers: { "Content-Type": "application/json", ...corsHeaders() } }
-        );
-      }
-  
-      return new Response(JSON.stringify(community), {
-        status: 200,
-        headers: { "Content-Type": "application/json", ...corsHeaders() },
-      });
-    } catch (error) {
-      console.error("Ошибка получения сообщества:", error);
       return new Response(
-        JSON.stringify({ error: "Ошибка сервера" }),
-        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders() } }
+        JSON.stringify({ message: "Отписка успешна" }),
+        { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders() } }
+      );
+    } else {
+      await prisma.communityMember.create({
+        data: {
+          communityId,
+          userId: tokenUserId,
+          role: "MEMBER", 
+        },
+      });
+      return new Response(
+        JSON.stringify({ message: "Подписка успешна" }),
+        { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders() } }
       );
     }
+  } catch (error: any) {
+    console.error("Ошибка в toggleCommunitySubscription:", error);
+    return new Response(
+      JSON.stringify({ error: "Server error" }),
+      { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders() } }
+    );
   }
+}
+
+export async function toggleCommunityNotifications(req: Request): Promise<Response> {
+  try {
+    const tokenData = await verifyToken(req);
+    const tokenUserId = tokenData?.user?.id || tokenData?.id;
+    if (!tokenUserId) {
+      return new Response(
+        JSON.stringify({ error: "Не авторизован" }),
+        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders() } }
+      );
+    }
+
+    const { communityId } = await req.json();
+    if (!communityId) {
+      return new Response(
+        JSON.stringify({ error: "Не указан идентификатор сообщества" }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders() } }
+      );
+    }
+
+    const member = await prisma.communityMember.findUnique({
+      where: {
+        communityId_userId: {
+          communityId,
+          userId: tokenUserId,
+        },
+      },
+    });
+
+    if (!member) {
+      return new Response(
+        JSON.stringify({ error: "Вы не являетесь участником сообщества" }),
+        { status: 404, headers: { "Content-Type": "application/json", ...corsHeaders() } }
+      );
+    }
+
+    const newNotifications = !member.notifications;
+
+    const updatedMember = await prisma.communityMember.update({
+      where: {
+        communityId_userId: {
+          communityId,
+          userId: tokenUserId,
+        },
+      },
+      data: {
+        notifications: newNotifications,
+      },
+    });
+
+    return new Response(
+      JSON.stringify({ notificationEnabled: updatedMember.notifications }),
+      { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders() } }
+    );
+  } catch (error: any) {
+    console.error("Ошибка переключения уведомлений:", error);
+    return new Response(JSON.stringify({ error: "Ошибка сервера" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json", ...corsHeaders() },
+    });
+  }
+}

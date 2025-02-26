@@ -27,7 +27,7 @@ import {
 } from "./routes/notifications";
 import { createComplaint, updateComplaintStatus, getComplaints } from "./routes/complaints";
 import { chatHandler } from "./routes/chat";
-import { createCommunity, getCommunity } from "./routes/community";
+import { createCommunity, getCommunity, toggleCommunitySubscription, toggleCommunityNotifications } from "./routes/community";
 
 serve({
   port: 3000,
@@ -137,6 +137,10 @@ serve({
             response = await updateComplaintStatus(req);
           } else if (url.pathname === "/api/community/create" && req.method === "POST") {
             response = await createCommunity(req);
+          } else if (url.pathname === "/api/community/subscribe" && req.method === "POST") {
+            response = await toggleCommunitySubscription(req);
+          } else if (url.pathname === "/api/community/subscribe/notifications" && req.method === "POST") {
+            response = await toggleCommunityNotifications(req);
           } else {
             response = new Response("Страница не найдена", { status: 404 });
           }

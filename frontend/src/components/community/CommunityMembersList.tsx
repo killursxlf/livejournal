@@ -7,6 +7,11 @@ import { Search, Shield } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import getRelativeTime from "@/lib/date"
 
+
+interface CommunityMembersListProps {
+  members: CommunityMember[];
+}
+
 interface CommunityMember {
   userId: string;
   role: string;
@@ -14,9 +19,7 @@ interface CommunityMember {
   user: { id: string, name: string, avatar: string }
 }
 
-interface CommunityMembersListProps {
-  members: CommunityMember[];
-}
+
 
 export const CommunityMembersList = ({ members }: CommunityMembersListProps) => {
   const [searchQuery, setSearchQuery] = useState("");
