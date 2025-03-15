@@ -559,3 +559,51 @@ export async function getUserWithPosts(req: Request): Promise<Response> {
     });
   }
 }
+
+export async function getUserCommunities(req: Request) {
+  const token = await verifyToken(req);
+  if (!token || !token.id) {
+    return new Response(
+      JSON.stringify({ error: "Unauthorized" }),
+      { status: 401, headers: { "Content-Type": "application/json" } }
+    );
+  }
+  
+  const userId = token.id;
+  console.log("UserID from token:", token.id);
+  
+  try {
+    const communityMembers = await prisma.communityMember.findMany({
+      where: { userId },
+      include: {
+        community: {
+          select: {
+            id: true,
+            name: true,
+            avatar: true,
+            _count: { select: { members: true } }
+          }
+        }
+      }
+    });
+
+    console.log("Community members found:", communityMembers);
+  
+    const communities = communityMembers.map(cm => ({
+      id: cm.community.id,
+      name: cm.community.name,
+      avatar: cm.community.avatar,
+      userCount: cm.community._count.members
+    }));
+  
+    return new Response(JSON.stringify({ communities }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" }
+    });
+  } catch (error: any) {
+    return new Response(
+      JSON.stringify({ error: error.message || "Ошибка сервера" }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
+  }
+}

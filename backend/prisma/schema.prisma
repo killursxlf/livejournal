@@ -93,6 +93,8 @@ model Post {
   
   status            PostStatus       @default(DRAFT)
   publicationType   PublicationType  @default(ARTICLE)
+  publicationMode   PublicationMode  @default(USER)
+  
   postVersions      PostVersion[]
   publishAt         DateTime?
   
@@ -178,7 +180,14 @@ model PostVersion {
 
 enum PostStatus {
   DRAFT
+  PENDING
   PUBLISHED
+  REJECTED
+}
+
+enum PublicationMode {
+  USER
+  COMMUNITY
 }
 
 enum PublicationType {

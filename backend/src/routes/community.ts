@@ -1,9 +1,9 @@
 import { corsHeaders } from "../utils/cors";
 import { verifyToken } from "./auth";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, PostStatus, PublicationType, PublicationMode } from "@prisma/client";
 
 const prisma = new PrismaClient();
-const backendURL = "http://localhost:3000"; // Замените на нужный URL
+const backendURL = "http://localhost:3000"; 
 
 export async function createCommunity(req: Request): Promise<Response> {
   try {
@@ -16,7 +16,6 @@ export async function createCommunity(req: Request): Promise<Response> {
       );
     }
 
-    // Объявляем переменные для данных
     let name: string | null = null;
     let description: string | null = null;
     let categoryId: string | null = null;
@@ -42,7 +41,6 @@ export async function createCommunity(req: Request): Promise<Response> {
       description = body.description;
       categoryId = body.categoryId;
       rules = body.rules;
-      // Если данные приходят в JSON, ожидаем уже готовые URL
       avatar = body.avatar;
       background = body.background;
     }
@@ -60,7 +58,6 @@ export async function createCommunity(req: Request): Promise<Response> {
       );
     }
 
-    // Если переданы файлы, сохраняем их
     if (avatarFile && avatarFile instanceof File) {
       const fileExtension = avatarFile.name.split(".").pop();
       const fileName = `community_avatar_${Date.now()}.${fileExtension}`;
@@ -76,13 +73,12 @@ export async function createCommunity(req: Request): Promise<Response> {
       background = `${backendURL}${filePath}`;
     }
 
-    // Создаем сообщество с вложенной записью CommunityMember для владельца
     const community = await prisma.community.create({
       data: {
         name,
         description,
-        avatar,      // URL аватарки (сохраненного файла или переданный в JSON)
-        background,  // URL фонового изображения
+        avatar,      
+        background,  
         rules,
         owner: {
           connect: { id: tokenUserId },
@@ -117,7 +113,6 @@ export async function createCommunity(req: Request): Promise<Response> {
 
 export async function getCommunity(req: Request): Promise<Response> {
   try {
-    // Извлекаем параметры из URL, например: /api/community?id=...&userId=...
     const url = new URL(req.url);
     const communityId = url.searchParams.get("id");
     const userId = url.searchParams.get("userId");
@@ -140,8 +135,10 @@ export async function getCommunity(req: Request): Promise<Response> {
           },
         },
         posts: {
+          where: { status: PostStatus.PUBLISHED },
           include: {
             author: true,
+            community: true,
           },
         },
       },
@@ -295,5 +292,230 @@ export async function toggleCommunityNotifications(req: Request): Promise<Respon
       status: 500,
       headers: { "Content-Type": "application/json", ...corsHeaders() },
     });
+  }
+}
+
+export async function getPendingPosts(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const communityId = searchParams.get('communityId');
+  if (!communityId) {
+    return new Response(
+      JSON.stringify({ error: "Параметр communityId обязателен" }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  const token = await verifyToken(req);
+  if (!token || !token.id) {
+    return new Response(
+      JSON.stringify({ error: "Unauthorized" }),
+      { status: 401, headers: { "Content-Type": "application/json" } }
+    );
+  }
+  const userId = token.id;
+
+  const communityMember = await prisma.communityMember.findUnique({
+    where: {
+      communityId_userId: { communityId, userId }
+    }
+  });
+
+  if (!communityMember || (communityMember.role !== "MODERATOR" && communityMember.role !== "ADMIN")) {
+    return new Response(
+      JSON.stringify({ error: "Forbidden: insufficient permissions" }),
+      { status: 403, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  const posts = await prisma.post.findMany({
+    where: {
+      communityId,
+      status: PostStatus.PENDING,
+    },
+    include: {
+      author: {
+        select: {
+          id: true,
+          name: true,
+          username: true,
+          email: true,
+        }
+      },
+      postTags: {
+        include: {
+          tag: { select: { name: true } }
+        }
+      }
+    },
+    orderBy: { createdAt: 'desc' }
+  });
+
+  const transformedPosts = posts.map(post => ({
+    id: post.id,
+    title: post.title,
+    content: post.content,
+    authorId: post.author.id,
+    authorName: post.author.name,
+    communityId: post.communityId,
+    createdAt: post.createdAt,
+    tags: post.postTags.map(pt => pt.tag.name)
+  }));
+
+  return new Response(JSON.stringify({ posts: transformedPosts }), {
+    status: 200,
+    headers: { "Content-Type": "application/json" }
+  });
+}
+
+export async function confrimPendingPosts(req: Request): Promise<Response> {
+  try {
+    const token = await verifyToken(req);
+    if (!token || !token.id) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    const moderatorId = token.id;
+
+    const body = await req.json();
+    const { postId, status: newStatus, publicationMode: newPublicationMode } = body;
+
+    if (!postId || !newStatus || !newPublicationMode) {
+      return new Response(
+        JSON.stringify({ error: 'postId, status, and publicationMode are required' }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    const post = await prisma.post.findUnique({
+      where: { id: postId },
+    });
+    if (!post) {
+      return new Response(JSON.stringify({ error: "Post not found" }), {
+        status: 404,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    if (post.communityId) {
+      const membership = await prisma.communityMember.findUnique({
+        where: {
+          communityId_userId: { communityId: post.communityId, userId: moderatorId },
+        },
+      });
+      if (!membership || (membership.role !== "MODERATOR" && membership.role !== "ADMIN")) {
+        return new Response(
+          JSON.stringify({ error: "Forbidden: You are not a moderator of this community." }),
+          { status: 403, headers: { "Content-Type": "application/json" } }
+        );
+      }
+    }
+
+    const updatedPost = await prisma.post.update({
+      where: { id: postId },
+      data: { status: newStatus, publicationMode: newPublicationMode },
+      include: { author: true },
+    });
+
+    if (newStatus === PostStatus.PUBLISHED) {
+      const notificationMessage = `Ваш пост "${updatedPost.title}" был опубликован.`;
+      await prisma.notification.create({
+        data: {
+          type: "postPublished",
+          senderId: moderatorId,
+          senderName: token.name || "",
+          recipientId: updatedPost.author.id,
+          postId: updatedPost.id,
+          message: notificationMessage,
+        },
+      });
+    }
+
+    return new Response(JSON.stringify({ message: "Post updated successfully", post: updatedPost }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  } catch (error: any) {
+    console.error("Error updating post:", error);
+    return new Response(JSON.stringify({ error: error.message || "Server error" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+}
+
+export async function rejectPendingPost(req: Request): Promise<Response> {
+  try {
+    const token = await verifyToken(req);
+    if (!token || !token.id) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { "Content-Type": "application/json", ...corsHeaders() },
+      });
+    }
+    const moderatorId = token.id;
+
+    const body = await req.json();
+    const { postId, reason } = body;
+    if (!postId || !reason) {
+      return new Response(
+        JSON.stringify({ error: "postId and reason are required" }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders() } }
+      );
+    }
+
+    const post = await prisma.post.findUnique({
+      where: { id: postId },
+    });
+    if (!post) {
+      return new Response(JSON.stringify({ error: "Post not found" }), {
+        status: 404,
+        headers: { "Content-Type": "application/json", ...corsHeaders() },
+      });
+    }
+
+    if (post.communityId) {
+      const membership = await prisma.communityMember.findUnique({
+        where: {
+          communityId_userId: { communityId: post.communityId, userId: moderatorId },
+        },
+      });
+      if (!membership || (membership.role !== "MODERATOR" && membership.role !== "ADMIN")) {
+        return new Response(
+          JSON.stringify({ error: "Forbidden: You are not a moderator of this community." }),
+          { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders() } }
+        );
+      }
+    }
+
+    const updatedPost = await prisma.post.update({
+      where: { id: postId },
+      data: { status: PostStatus.REJECTED },
+      include: { author: true },
+    });
+
+    const notificationMessage = `Ваш пост "${updatedPost.title}" был отклонен. Причина: ${reason}`;
+    await prisma.notification.create({
+      data: {
+        type: "postRejected",
+        senderId: moderatorId,
+        senderName: token.name || "",
+        recipientId: updatedPost.author.id,
+        postId: updatedPost.id,
+        message: notificationMessage,
+      },
+    });
+
+    return new Response(
+      JSON.stringify({ message: "Post rejected successfully", post: updatedPost }),
+      { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders() } }
+    );
+  } catch (error: any) {
+    console.error("Error rejecting post:", error);
+    return new Response(
+      JSON.stringify({ error: error.message || "Server error" }),
+      { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders() } }
+    );
   }
 }

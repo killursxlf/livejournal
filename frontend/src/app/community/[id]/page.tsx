@@ -1,23 +1,21 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { PostCard } from "@/components/PostCard";
 import type { CurrentUser, Post, CommunityMember } from "@/types/type";
-import { Card, CardContent} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Shield, Calendar, MessageSquare, Users, Bell, BellOff } from "lucide-react";
+import { Shield, Calendar, MessageSquare, Users, Bell, BellOff, PenSquare } from "lucide-react";
 import { CommunityMembersList } from "@/components/community/CommunityMembersList";
 import { CommunityRules } from "@/components/community/CommunityRules";
 import { CommunityStats } from "@/components/community/CommunityStats";
 import { useToast } from "@/components/ui/use-toast";
 
-
 const backendURL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000";
-
 
 interface Community {
   id: string;
@@ -26,7 +24,6 @@ interface Community {
   avatar: string;
   background: string;
   createdAt: string;
-  postCount?: number;
   memberCount?: number;
   rules?: string;
   owner: CurrentUser;
@@ -43,15 +40,14 @@ const Community = () => {
   const { toast } = useToast();
 
   const currentUser: CurrentUser | undefined = session?.user
-  ? {
-      id: session.user.id,
-      username: session.user.username ?? "",
-      name: session.user.name ?? "Anonymous", 
-      avatar: session.user.image ?? "/placeholder.svg",
-      token: "",
-    }
-  : undefined;
-
+    ? {
+        id: session.user.id,
+        username: session.user.username ?? "",
+        name: session.user.name ?? "Anonymous",
+        avatar: session.user.image ?? "/placeholder.svg",
+        token: "",
+      }
+    : undefined;
 
   const currentUserId = session?.user?.id;
 
@@ -60,7 +56,7 @@ const Community = () => {
   const [members, setMembers] = useState<CommunityMember[]>([]);
   const [isJoined, setIsJoined] = useState(false);
   const [isNotificationsEnabled, setIsNotificationsEnabled] = useState(false);
-
+  const router = useRouter();
 
   useEffect(() => {
     async function fetchCommunity() {
@@ -99,6 +95,8 @@ const Community = () => {
 
   const memberCount = community.memberCount || members.length;
 
+  const postCount = posts.length;
+
   const moderators = community.members.filter((member) =>
     member.role === "ADMIN" || member.role === "MODERATOR"
   );
@@ -128,7 +126,6 @@ const Community = () => {
       }
     }
   };
-  
 
   const handleToggleNotifications = async () => {
     try {
@@ -243,7 +240,7 @@ const Community = () => {
                   </div>
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <MessageSquare className="w-4 h-4 text-primary" />
-                    Постов: {community.postCount || 0}
+                    Постов: {postCount}
                   </div>
                 </div>
               </CardContent>
@@ -276,7 +273,7 @@ const Community = () => {
             {/* Статистика сообщества */}
             <CommunityStats
               memberCount={memberCount}
-              postCount={community.postCount || 0}
+              postCount={postCount}
               activeMembers={42}
               newMembersToday={8}
             />
@@ -284,58 +281,76 @@ const Community = () => {
 
           {/* Основной контент – посты и участники */}
           <div className="lg:col-span-2 space-y-6">
-            <Tabs defaultValue="posts" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 max-w-[400px] bg-black/20 border border-white/10">
-                <TabsTrigger value="posts">Публикации</TabsTrigger>
-                <TabsTrigger value="members">Участники</TabsTrigger>
-              </TabsList>
-              <TabsContent value="posts" className="space-y-6 mt-6">
-              {posts.map((post) => (
-                <PostCard
-                key={post.id}
-                id={post.id}
-                title={post.title}
-                content={post.content}
-                author={{
-                  id: post.author.id,
-                  username: post.author.username,
-                  name: post.author.name,
-                  avatar: post.author.avatar,
-                }}
-                createdAt={new Date(post.createdAt)}
-                postTags={
-                  post.postTags
-                    ? post.postTags.map((pt) => ({
-                        tag: { name: pt.tag.name },
-                      }))
-                    : []
-                }
-                likeCount={post.likeCount}
-                isLiked={post.isLiked}
-                commentCount={post.commentCount}
-                comments={
-                  post.comments?.map((comment) => ({
-                    id: comment.id,
-                    authorUserName: comment.author.username,
-                    authorId: comment.author.id,
-                    content: comment.content,
-                    date: comment.createdAt,
-                    author: comment.author.name,
-                    avatar: comment.author.avatar,
-                  })) ?? []
-                }
-                currentUser={currentUser}
-                isSaved={post.isSaved}
-              />
-              ))}
-                <Button className="w-full mt-4" variant="outline">
-                  Загрузить еще
-                </Button>
-              </TabsContent>
-              <TabsContent value="members" className="mt-6">
-                <CommunityMembersList members={community.members} />
-              </TabsContent>
-            </Tabs>
+            <div className="flex items-center justify-between mb-2">
+              <Tabs defaultValue="posts" className="w-full">
+                <div className="flex items-center justify-between">
+                  <TabsList className="grid w-full grid-cols-2 max-w-[400px] bg-black/20 border border-white/10">
+                    <TabsTrigger value="posts">Публикации</TabsTrigger>
+                    <TabsTrigger value="members">Участники</TabsTrigger>
+                  </TabsList>
+                  {community.members.some((member) =>
+                    member.user.id === currentUserId && (member.role === "ADMIN" || member.role === "MODERATOR")
+                  ) && (
+                    <Button
+                      variant="default"
+                      className="ml-2"
+                      onClick={() => router.push(`/profile/${currentUser?.username}/create-post`)}
+                    >
+                      <PenSquare className="w-4 h-4 mr-2" />
+                      Создать пост
+                    </Button>
+                  )}
+                </div>
+                <TabsContent value="posts" className="space-y-6 mt-6">
+                  {posts.map((post) => (
+                    <PostCard
+                      key={post.id}
+                      id={post.id}
+                      title={post.title}
+                      content={post.content}
+                      author={{
+                        id: post.author.id,
+                        username: post.author.username,
+                        name: post.author.name,
+                        avatar: post.author.avatar,
+                      }}
+                      createdAt={new Date(post.createdAt)}
+                      postTags={
+                        post.postTags
+                          ? post.postTags.map((pt) => ({
+                              tag: { name: pt.tag.name },
+                            }))
+                          : []
+                      }
+                      likeCount={post.likeCount}
+                      isLiked={post.isLiked}
+                      commentCount={post.commentCount}
+                      comments={
+                        post.comments?.map((comment) => ({
+                          id: comment.id,
+                          authorUserName: comment.author.username,
+                          authorId: comment.author.id,
+                          content: comment.content,
+                          date: comment.createdAt,
+                          author: comment.author.name,
+                          avatar: comment.author.avatar,
+                        })) ?? []
+                      }
+                      currentUser={currentUser}
+                      isSaved={post.isSaved}
+                      community={post.community}
+                      publicationMode={post.publicationMode}
+                    />
+                  ))}
+                  <Button className="w-full mt-4" variant="outline">
+                    Загрузить еще
+                  </Button>
+                </TabsContent>
+                <TabsContent value="members" className="mt-6">
+                  <CommunityMembersList members={community.members} />
+                </TabsContent>
+              </Tabs>
+            </div>
           </div>
         </div>
       </main>

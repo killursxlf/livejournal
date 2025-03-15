@@ -52,4 +52,10 @@ export interface Post {
     commentCount: number;
     comments?: CommentData[];
     isSaved: boolean;
+    community?: {
+      avatar: string;
+      name: string;
+      id: string;
+    };
+    publicationMode: "USER" | "COMMUNITY" | undefined;
 }

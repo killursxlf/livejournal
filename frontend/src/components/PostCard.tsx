@@ -14,7 +14,7 @@ import {
   X,
   Flag,
   Trash2,
-} from "lucide-react"; // Убраны MoreVertical и Pencil, т.к. не используются
+} from "lucide-react"; 
 import { LikeButton } from "@/components/LikeButton";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -70,6 +70,8 @@ export interface PostCardProps {
   currentUser?: CurrentUser;
   isSaved?: boolean;
   scheduledMessage?: string;
+  publicationMode?: "USER" | "COMMUNITY";
+  community?: { name: string; avatar: string };
 }
 
 type ComplaintTarget = {
@@ -85,7 +87,6 @@ interface ComplaintSubmission {
   commentId?: string;
 }
 
-// Добавляем REPORT_REASONS с явной типизацией
 const REPORT_REASONS: { id: string; label: string }[] = [
   { id: "spam", label: "Спам" },
   { id: "inappropriate", label: "Неприемлемый контент" },
@@ -108,6 +109,8 @@ export const PostCard = ({
   currentUser,
   isSaved = false,
   scheduledMessage,
+  publicationMode = "USER",
+  community,
 }: PostCardProps) => {
   const { toast } = useToast();
 
@@ -118,6 +121,9 @@ export const PostCard = ({
     hour: "2-digit",
     minute: "2-digit",
   });
+
+  const displayAuthor =
+    publicationMode === "COMMUNITY" && community ? community : author;
 
   const [localComments, setLocalComments] = useState<Comment[]>(comments || []);
   const [showComments, setShowComments] = useState(false);
@@ -170,7 +176,7 @@ export const PostCard = ({
       }
 
       const data = await response.json();
-      // Преобразуем ответ к типу Comment
+
       const convertedComment: Comment = {
         id: data.id,
         authorId: data.author.id,
@@ -272,7 +278,6 @@ export const PostCard = ({
     }
   };
 
-  // Функция для открытия диалога жалобы для комментария
   const handleReportComment = (commentId: string) => {
     setSelectedComplaintTarget({ type: "comment", id: commentId });
     setReportDialogOpen(true);
@@ -338,11 +343,11 @@ export const PostCard = ({
   return (
     <Card className="group hover:border-primary/50 transition-all duration-300 backdrop-blur-sm bg-black/20 hover:bg-black/30 border-white/5 shadow-lg animate-fade-in relative">
       <CardHeader className="flex flex-row items-center gap-4">
-        <Avatar>
-          {author.avatar ? (
-            <AvatarImage src={author.avatar} alt={author.name} />
+      <Avatar>
+          {displayAuthor.avatar ? (
+            <AvatarImage src={displayAuthor.avatar} alt={displayAuthor.name} />
           ) : (
-            <AvatarFallback>{author.name[0]}</AvatarFallback>
+            <AvatarFallback>{displayAuthor.name.charAt(0)}</AvatarFallback>
           )}
         </Avatar>
         <div className="flex-1">
@@ -357,7 +362,7 @@ export const PostCard = ({
             </p>
           )}
           <p className="text-sm text-muted-foreground/80">
-            {author.name} • {formattedDate}
+            {displayAuthor.name} • {formattedDate}
           </p>
         </div>
         <div className="flex items-center gap-4 text-muted-foreground">

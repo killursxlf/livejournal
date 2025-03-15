@@ -11,10 +11,11 @@ import {
   getUser,
   completeProfile,
   updateProfile,
+  getUserCommunities,
 } from "./routes/user";
 import { corsHeaders } from "./utils/cors";
 import { readFile } from "fs/promises";
-import { getAllPosts, getPost, createPost, updateDraft, deletePost, searchPosts } from "./routes/posts";
+import { getAllPosts, getPost, createPost, updateDraft, deletePost, searchPosts, sharePost } from "./routes/posts";
 import { toggleLike } from "./routes/like";
 import { addComment, DELETE } from "./routes/comment";
 import { toggleFollow } from "./routes/follow";
@@ -27,7 +28,7 @@ import {
 } from "./routes/notifications";
 import { createComplaint, updateComplaintStatus, getComplaints } from "./routes/complaints";
 import { chatHandler } from "./routes/chat";
-import { createCommunity, getCommunity, toggleCommunitySubscription, toggleCommunityNotifications } from "./routes/community";
+import { createCommunity, getCommunity, toggleCommunitySubscription, toggleCommunityNotifications, getPendingPosts, confrimPendingPosts, rejectPendingPost } from "./routes/community";
 
 serve({
   port: 3000,
@@ -137,8 +138,18 @@ serve({
             response = await updateComplaintStatus(req);
           } else if (url.pathname === "/api/community/create" && req.method === "POST") {
             response = await createCommunity(req);
+          } else if (url.pathname === "/api/user/communities" && req.method === "GET") {
+            response = await getUserCommunities(req);
+          } else if (url.pathname === "/api/community/moderation/posts" && req.method === "GET") {
+            response = await getPendingPosts(req);
           } else if (url.pathname === "/api/community/subscribe" && req.method === "POST") {
             response = await toggleCommunitySubscription(req);
+          } else if (url.pathname === "/api/user/share-post" && req.method === "POST") {
+            response = await sharePost(req);
+          } else if (url.pathname === "/api/community/moderation/update-post" && req.method === "POST") {
+            response = await confrimPendingPosts(req);
+          } else if (url.pathname === "/api/community/moderation/reject-post" && req.method === "POST") {
+            response = await rejectPendingPost(req);
           } else if (url.pathname === "/api/community/subscribe/notifications" && req.method === "POST") {
             response = await toggleCommunityNotifications(req);
           } else {

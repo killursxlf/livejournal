@@ -28,7 +28,7 @@ export default function PostsPage() {
   ? {
       id: session.user.id,
       username: session.user.username ?? "",
-      name: session.user.name ?? "Anonymous", // значение по умолчанию, если name отсутствует
+      name: session.user.name ?? "Anonymous", 
       avatar: session.user.image ?? "/placeholder.svg",
       token: "",
     }
