@@ -23,6 +23,8 @@ export default function EditPost() {
   const [postType, setPostType] = useState("Article");
   const [publishDate, setPublishDate] = useState("");
   const [publishTime, setPublishTime] = useState("");
+  // Состояние выбранных сообществ
+  const [selectedCommunities, setSelectedCommunities] = useState<string[]>([]);
 
   const editorRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
@@ -118,8 +120,55 @@ export default function EditPost() {
     }
   };
 
+  const submitPostApplication = async () => {
+    const publicationTypeMapping: Record<string, string> = {
+      Article: "ARTICLE",
+      News: "NEWS",
+      Review: "REVIEW",
+    };
+
+    const payload = {
+      title,
+      content,
+      email: session?.user?.email,
+      tags,
+      status: "PENDING",
+      publicationType: publicationTypeMapping[postType],
+      publishDate,
+      publishTime,
+      communities: selectedCommunities,
+    };
+
+    try {
+      const res = await fetch(`${backendURL}/api/user/share-post`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        console.log("Заявка на публикацию создана:", data);
+        toast({
+          description: "Заявка на публикацию отправлена",
+          duration: 3000,
+        });
+        router.push("/posts");
+      } else {
+        console.error("Ошибка создания заявки:", data.error);
+      }
+    } catch (error) {
+      console.error("Ошибка создания заявки:", error);
+    }
+  };
+
   const handlePublish = () => {
-    submitPost("PUBLISHED");
+    if (selectedCommunities.length > 0) {
+      submitPostApplication();
+    } else {
+      submitPost("PUBLISHED");
+    }
   };
 
   const handleSaveDraft = () => {
@@ -134,10 +183,7 @@ export default function EditPost() {
             <BackButton />
           </div>
           <div className="flex-grow space-y-6 animate-fade-up">
-            <TitleInput
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-            />
+            <TitleInput value={title} onChange={(e) => setTitle(e.target.value)} />
             <TagsInput value={tags} onChange={setTags} />
             <div ref={editorRef} className="w-full bg-muted rounded-lg overflow-hidden">
               <textarea className="w-full" />
@@ -152,6 +198,9 @@ export default function EditPost() {
             setPublishTime={setPublishTime}
             onPublish={handlePublish}
             onSaveDraft={handleSaveDraft}
+            onShare={submitPostApplication}
+            selectedCommunities={selectedCommunities}
+            setSelectedCommunities={setSelectedCommunities}
           />
         </div>
       </main>

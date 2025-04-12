@@ -5,6 +5,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
+import { CommunitySelector } from "./CommunitySelector";
 
 export interface VersionType {
   id: string;
@@ -22,10 +23,12 @@ interface SidebarProps {
   setPublishTime: (value: string) => void;
   onPublish: () => void;
   onSaveDraft: () => void;
-  // Новые пропсы для версий поста:
+  onShare: () => void; // новый пропс
   versions?: VersionType[];
   onSelectVersion?: (version: VersionType) => void;
   onRestoreCurrent?: () => void;
+  selectedCommunities: string[];
+  setSelectedCommunities: (communities: string[]) => void;
 }
 
 export default function Sidebar({
@@ -37,9 +40,12 @@ export default function Sidebar({
   setPublishTime,
   onPublish,
   onSaveDraft,
+  onShare,
   versions = [],
   onSelectVersion,
   onRestoreCurrent,
+  selectedCommunities,
+  setSelectedCommunities,
 }: SidebarProps) {
   return (
     <aside className="w-full lg:w-64 space-y-6 animate-fade-in">
@@ -90,6 +96,15 @@ export default function Sidebar({
           </button>
         )}
       </div>
+
+      <div className="bg-muted p-4 rounded-md shadow">
+        <CommunitySelector
+          selectedCommunities={selectedCommunities}
+          setSelectedCommunities={setSelectedCommunities}
+          onShare={onShare}
+        />
+      </div>
+
       <div className="bg-muted p-4 rounded-md shadow">
         <h2 className="text-lg font-semibold mb-2 text-foreground">Additional Settings</h2>
         <div className="space-y-2">

@@ -17,6 +17,7 @@ import {
   MoreVertical,
   Pencil,
   Trash2,
+  Flag,
 } from "lucide-react";
 import { LikeButton } from "@/components/LikeButton";
 import {
@@ -27,6 +28,16 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/components/ui/use-toast";
 import ReactMarkdown from "react-markdown";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { AnchorHTMLAttributes, ImgHTMLAttributes  } from "react";
+import NextImage from "next/image";
 
 type CommentType = {
   id: string;
@@ -59,17 +70,139 @@ type PostType = {
 
 const backendURL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000";
 
+const REPORT_REASONS = [
+  { id: "spam", label: "Спам" },
+  { id: "inappropriate", label: "Неприемлемый контент" },
+  { id: "fraud", label: "Мошенничество" },
+  { id: "harassment", label: "Оскорбления" },
+  { id: "other", label: "Другое" },
+];
+
+type ComplaintTarget = {
+  type: "post" | "comment";
+  id: string;
+} | null;
+
+interface ComplaintSubmission {
+  reason: string;
+  description: string;
+  userId: string;
+  postId?: string;
+  commentId?: string;
+}
+
 const PostPage = () => {
-  const params = useParams();
+  const params = useParams() as { id: string };
   const router = useRouter();
   const { id } = params;
   const { data: session } = useSession();
-
   const [post, setPost] = useState<PostType | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [newComment, setNewComment] = useState<string>("");
   const [showAuthMessage, setShowAuthMessage] = useState<boolean>(false);
   const { toast } = useToast();
+  const renderMedia = (url: string) => {
+    const lowerUrl = url.toLowerCase();
+  
+    if (/\.(jpg|jpeg|png|gif)$/.test(lowerUrl)) {
+      return (
+        <div className="flex justify-center">
+          <NextImage
+            loader={customLoader}
+            src={url}
+            alt="media"
+            width={600}
+            height={400}
+            className="rounded"
+          />
+        </div>
+      );
+    }
+  
+    if (/\.(mp4|webm|ogg)$/.test(lowerUrl)) {
+      return (
+        <video controls className="max-w-full rounded">
+          <source src={url} />
+          Ваш браузер не поддерживает видео.
+        </video>
+      );
+    }
+  
+    if (url.includes("youtube.com") || url.includes("youtu.be")) {
+      let videoId = "";
+      const youtubeRegex = /(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([^\s&]+)/;
+      const match = url.match(youtubeRegex);
+      if (match && match[1]) {
+        videoId = match[1];
+      }
+      const embedUrl = `https://www.youtube.com/embed/${videoId}`;
+      return (
+        <div className="relative pb-[56.25%] h-0 overflow-hidden rounded">
+          <iframe
+            className="absolute top-0 left-0 w-full h-full"
+            src={embedUrl}
+            title="YouTube video player"
+            frameBorder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+          ></iframe>
+        </div>
+      );
+    }
+  
+    return (
+      <a href={url} target="_blank" rel="noopener noreferrer">
+        {url}
+      </a>
+    );
+  };
+  
+  type CustomLinkProps = AnchorHTMLAttributes<HTMLAnchorElement> & {
+    children?: React.ReactNode;
+  };
+  
+  const CustomLink: React.FC<CustomLinkProps> = ({ href, children, ...props }) => {
+    if (href && /\.(jpg|jpeg|png|gif|mp4|webm|ogg)$/i.test(href)) {
+      return <>{renderMedia(href)}</>;
+    }
+    return (
+      <a href={href} {...props}>
+        {children}
+      </a>
+    );
+  };
+
+  const customLoader = ({ src }: { src: string }) => {
+    return src;
+  };
+  type CustomImageProps = ImgHTMLAttributes<HTMLImageElement>;
+  const CustomImage: React.FC<CustomImageProps> = ({ src, alt = "", ...props }) => {
+    if (typeof src === "string") {
+      if (src.includes("youtube.com") || src.includes("youtu.be")) {
+        return <>{renderMedia(src)}</>;
+      }
+      return (
+        <div className="flex justify-center">
+          <NextImage 
+            loader={customLoader}
+            src={src}
+            alt={alt} 
+            width={600}
+            height={400}
+            className="rounded"
+          />
+        </div>
+      );
+    }
+    return <img alt={alt} {...props} />;
+  };
+  
+  
+  const [reportDialogOpen, setReportDialogOpen] = useState<boolean>(false);
+  const [selectedReason, setSelectedReason] = useState<string>("");
+  const [additionalInfo, setAdditionalInfo] = useState("");
+  const [selectedComplaintTarget, setSelectedComplaintTarget] =
+    useState<ComplaintTarget>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -94,7 +227,8 @@ const PostPage = () => {
     fetchPost();
   }, [id]);
 
-  const isAuthor = session && post && session.user.username === post.author.username;
+  const isAuthor =
+    session && post && session.user.username === post.author.username;
 
   const handleSubmitComment = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -221,6 +355,75 @@ const PostPage = () => {
     }
   };
 
+  const handleReportPost = () => {
+    setSelectedComplaintTarget({ type: "post", id });
+    setReportDialogOpen(true);
+  };
+
+  const handleReportComment = (commentId: string) => {
+    setSelectedComplaintTarget({ type: "comment", id: commentId });
+    setReportDialogOpen(true);
+  };
+
+  const handleSubmitReport = async () => {
+    if (!selectedReason) {
+      toast({
+        title: "Ошибка",
+        description: "Пожалуйста, выберите причину жалобы",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!selectedComplaintTarget) {
+      toast({
+        title: "Ошибка",
+        description: "Цель жалобы не определена",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const bodyData: ComplaintSubmission = {
+        reason: selectedReason,
+        description: additionalInfo,
+        userId: session!.user.id,
+      };
+
+      if (selectedComplaintTarget.type === "post") {
+        bodyData.postId = selectedComplaintTarget.id;
+      } else if (selectedComplaintTarget.type === "comment") {
+        bodyData.commentId = selectedComplaintTarget.id;
+      }
+
+      const response = await fetch(`${backendURL}/api/complaints`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(bodyData),
+      });
+      if (!response.ok) {
+        throw new Error("Ошибка отправки жалобы");
+      }
+      await response.json();
+      toast({
+        title: "Жалоба отправлена",
+        description: "Спасибо за обращение. Мы рассмотрим вашу жалобу.",
+      });
+      setReportDialogOpen(false);
+      setSelectedReason("");
+      setAdditionalInfo("");
+      setSelectedComplaintTarget(null);
+    } catch (error: unknown) {
+      const err = error as Error;
+      toast({
+        title: "Ошибка",
+        description: err.message || "Ошибка при отправке жалобы",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (loading) return <p>Загрузка...</p>;
   if (!post) return <p>Пост не найден.</p>;
 
@@ -284,7 +487,19 @@ const PostPage = () => {
                     initialLiked={post.isLiked}
                     initialCount={post.likeCount}
                   />
-                  <SavePostButton postId={post.id} isSavedInitial={post.isSaved} />
+                  <SavePostButton
+                    postId={post.id}
+                    isSavedInitial={post.isSaved}
+                  />
+                  {/* Кнопка жалобы для поста */}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-muted-foreground hover:text-destructive"
+                    onClick={handleReportPost}
+                  >
+                    <Flag className="w-4 h-4" />
+                  </Button>
                   {isAuthor && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -322,7 +537,7 @@ const PostPage = () => {
             </CardHeader>
             <CardContent>
               <div className="prose prose-invert max-w-none">
-                <ReactMarkdown>{post.content}</ReactMarkdown>
+                <ReactMarkdown components={{ a: CustomLink, img: CustomImage }}>{post.content}</ReactMarkdown>
               </div>
               <div className="flex flex-wrap gap-2 mt-6">
                 {post.postTags.map((pt, index) => (
@@ -334,6 +549,7 @@ const PostPage = () => {
             </CardContent>
           </Card>
 
+          {/* Форма отправки комментария */}
           <div className="space-y-6">
             <div className="flex items-center gap-2">
               <MessageSquare className="w-5 h-5" />
@@ -361,7 +577,10 @@ const PostPage = () => {
             </form>
             <div className="mt-4 space-y-4">
               {post.comments.map((comment) => (
-                <Card key={comment.id} className="backdrop-blur-sm bg-black/20 border-white/5">
+                <Card
+                  key={comment.id}
+                  className="backdrop-blur-sm bg-black/20 border-white/5"
+                >
                   <CardContent className="flex items-start gap-4 p-4">
                     <Avatar>
                       <AvatarImage src={comment.author.avatar} />
@@ -384,23 +603,29 @@ const PostPage = () => {
                               minute: "2-digit",
                             })}
                           </span>
-                          {session &&
-                            (session.user.username === comment.author.username ||
-                              session.user.username === post.author.username) && (
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-6 w-6 p-0 hover:bg-white/5"
-                                  >
-                                    <ChevronDown className="h-4 w-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent
-                                  align="end"
-                                  className="w-[160px] backdrop-blur-md bg-background/95 border-white/10"
-                                >
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0 hover:bg-white/5"
+                              >
+                                <ChevronDown className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent
+                              align="end"
+                              className="w-[160px] backdrop-blur-md bg-background/95 border-white/10"
+                            >
+                              <DropdownMenuItem
+                                onClick={() => handleReportComment(comment.id)}
+                              >
+                                <Flag className="w-4 h-4 mr-2" />
+                                Пожаловаться
+                              </DropdownMenuItem>
+                              {session &&
+                                (session.user.username === comment.author.username ||
+                                  session.user.username === post.author.username) && (
                                   <DropdownMenuItem
                                     onClick={() => handleDeleteComment(comment.id)}
                                     className="text-red-500 focus:text-red-500"
@@ -408,9 +633,9 @@ const PostPage = () => {
                                     <Trash2 className="w-4 h-4 mr-2" />
                                     Удалить
                                   </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            )}
+                                )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                       </div>
                       <p className="text-sm text-muted-foreground/90 mt-1">
@@ -424,6 +649,60 @@ const PostPage = () => {
           </div>
         </div>
       </main>
+
+      {/* Диалог отправки жалобы */}
+      <Dialog open={reportDialogOpen} onOpenChange={setReportDialogOpen}>
+        <DialogContent className="sm:max-w-[425px] gap-6 backdrop-blur-xl bg-black/60 border-white/10">
+          <DialogHeader>
+            <DialogTitle className="text-white/90">Отправить жалобу</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label className="text-white/90">Причина жалобы</Label>
+              <div className="grid gap-2">
+                {REPORT_REASONS.map((reason) => (
+                  <Button
+                    key={reason.id}
+                    variant={selectedReason === reason.id ? "default" : "outline"}
+                    className={`justify-start ${
+                      selectedReason === reason.id
+                        ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                        : "bg-black/40 text-white/90 border-white/10 hover:bg-white/10 hover:text-white"
+                    }`}
+                    onClick={() => setSelectedReason(reason.id)}
+                  >
+                    {reason.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-white/90">Дополнительная информация</Label>
+              <Textarea
+                placeholder="Опишите подробнее причину жалобы..."
+                value={additionalInfo}
+                onChange={(e) => setAdditionalInfo(e.target.value)}
+                className="min-h-[100px] bg-black/40 border-white/10 text-white/90 placeholder:text-white/50"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setReportDialogOpen(false)}
+              className="bg-black/40 text-white/90 border-white/10 hover:bg-white/10"
+            >
+              Отмена
+            </Button>
+            <Button
+              onClick={handleSubmitReport}
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
+            >
+              Отправить
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

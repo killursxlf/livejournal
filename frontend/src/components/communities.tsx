@@ -1,6 +1,7 @@
 "use client";
 
 import { CommunityCard } from "@/app/communities/CommunityCard";
+import { useRouter } from "next/navigation";
 
 const communities = 
 [
@@ -22,6 +23,12 @@ const communities =
 ];
 
 export default function CommunitiesPage() {
+  const router = useRouter();
+
+  const handleClick = () => {
+    router.push("/communities/search");
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-background/95 to-background/90">
       <section className="container px-4 pt-24 pb-16 text-center">
@@ -31,8 +38,10 @@ export default function CommunitiesPage() {
         <p className="text-xl text-muted-foreground mb-8">
           Найдите сообщество по интересам и присоединяйтесь к обсуждениям.
         </p>
-        <button className="px-8 py-3 bg-primary text-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors duration-300">
-          Создать сообщество
+        <button 
+        onClick={handleClick}
+        className="px-8 py-3 bg-primary text-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors duration-300">
+          Перейти к сообществам
         </button>
       </section>
 

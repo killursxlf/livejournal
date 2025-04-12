@@ -53,7 +53,7 @@ export async function getUser(req: Request): Promise<Response> {
             comments: {
               include: {
                 user: {
-                  select: { username: true, name: true, avatar: true },
+                  select: { id: true, username: true, name: true, avatar: true },
                 },
               },
             },
@@ -86,6 +86,7 @@ export async function getUser(req: Request): Promise<Response> {
 
     const mapPost = (post: any) => {
       const author = post.author || {
+        id: user.id,
         username: user.username,
         name: user.name,
         avatar: user.avatar,
@@ -98,6 +99,7 @@ export async function getUser(req: Request): Promise<Response> {
         createdAt: post.createdAt,
         publishAt: post.publishAt, 
         author: {
+          id: author.id,
           username: author.username,
           name: author.name,
           avatar: author.avatar,
@@ -112,6 +114,7 @@ export async function getUser(req: Request): Promise<Response> {
           content: comment.content,
           createdAt: comment.createdAt,
           author: {
+            id: comment.user?.id,
             username: comment.user?.username || "Unknown",
             name: comment.user?.name || "Unknown",
             avatar: comment.user?.avatar,
@@ -138,16 +141,18 @@ export async function getUser(req: Request): Promise<Response> {
 
     const now = new Date();
     const createdPosts = user.posts
-      ? (isOwner
-          ? user.posts
-          : user.posts.filter(
-              (post) =>
-                post.status === "PUBLISHED" &&
-                post.publishAt &&
-                new Date(post.publishAt) <= now
-            )
-        ).map(mapPost)
-      : [];
+    ? (isOwner
+        ? user.posts.filter(post => !post.communityId)
+        : user.posts.filter(
+            (post) =>
+              post.status === "PUBLISHED" &&
+              post.publishAt &&
+              new Date(post.publishAt) <= now &&
+              !post.communityId
+          )
+      ).map(mapPost)
+    : [];
+  
 
     const likedPostsData = await prisma.post.findMany({
       where: {
@@ -158,12 +163,12 @@ export async function getUser(req: Request): Promise<Response> {
         },
       },
       include: {
-        author: { select: { username: true, name: true, avatar: true } },
+        author: { select: { id: true, username: true, name: true, avatar: true } },
         postTags: { include: { tag: true } },
         likes: { select: { userId: true } },
         comments: {
           include: {
-            user: { select: { username: true, name: true, avatar: true } },
+            user: { select: { id: true, username: true, name: true, avatar: true } },
           },
         },
         savedBy: true,
@@ -185,7 +190,7 @@ export async function getUser(req: Request): Promise<Response> {
         likes: { select: { userId: true } },
         comments: {
           include: {
-            user: { select: { username: true, name: true, avatar: true } },
+            user: { select: { id: true, username: true, name: true, avatar: true } },
           },
         },
         savedBy: true,
@@ -221,6 +226,8 @@ export async function getUser(req: Request): Promise<Response> {
       email: user.email,
       name: user.name,
       bio: user.bio,
+      language: user.language,
+      location: user.location,
       avatar: user.avatar,
       createdAt: user.createdAt,
       followerCount: user.followers ? user.followers.length : 0,
@@ -358,6 +365,8 @@ export async function updateProfile(req: Request): Promise<Response> {
       name?: string; 
       bio?: string; 
       username?: string; 
+      language?: string;
+      location?: string;
       avatar?: string 
     } = {};
     
@@ -371,12 +380,16 @@ export async function updateProfile(req: Request): Promise<Response> {
       const name = formData.get("name") as string | null;
       const bio = formData.get("bio") as string | null;
       const newUsername = formData.get("username") as string | null;
+      const language = formData.get("language") as string | null;
+      const location = formData.get("location") as string | null;
       avatarFile = formData.get("avatar") as File | null;
 
       if (email) updateData.email = email;
       if (name) updateData.name = name;
       if (bio) updateData.bio = bio;
       if (newUsername) updateData.username = newUsername;
+      if (language) updateData.language = language;
+      if (location) updateData.location = location;
     } else {
       const body = await req.json();
       email = body.email;
@@ -384,6 +397,8 @@ export async function updateProfile(req: Request): Promise<Response> {
       if (body.bio !== undefined) updateData.bio = body.bio;
       if (body.username !== undefined) updateData.username = body.username;
       if (body.email !== undefined) updateData.email = body.email;
+      if (body.language !== undefined) updateData.language = body.language;
+      if (body.location !== undefined) updateData.location = body.location;
     }
 
     if (!email || typeof email !== "string") {
@@ -436,7 +451,7 @@ export async function updateProfile(req: Request): Promise<Response> {
       JSON.stringify({ message: "Профиль обновлён", ...updateData }),
       { headers: corsHeaders() }
     );
-  } catch (error) {
+  } catch (error: any) {
     console.error("Ошибка обновления профиля:", error);
     return new Response(
       JSON.stringify({ error: "Ошибка обновления профиля" }),
@@ -444,6 +459,7 @@ export async function updateProfile(req: Request): Promise<Response> {
     );
   }
 }
+
   
 export async function getUserWithPosts(req: Request): Promise<Response> {
   try {
@@ -543,5 +559,53 @@ export async function getUserWithPosts(req: Request): Promise<Response> {
       status: 500,
       headers: { "Content-Type": "application/json", ...corsHeaders() },
     });
+  }
+}
+
+export async function getUserCommunities(req: Request) {
+  const token = await verifyToken(req);
+  if (!token || !token.id) {
+    return new Response(
+      JSON.stringify({ error: "Unauthorized" }),
+      { status: 401, headers: { "Content-Type": "application/json" } }
+    );
+  }
+  
+  const userId = token.id;
+  console.log("UserID from token:", token.id);
+  
+  try {
+    const communityMembers = await prisma.communityMember.findMany({
+      where: { userId },
+      include: {
+        community: {
+          select: {
+            id: true,
+            name: true,
+            avatar: true,
+            _count: { select: { members: true } }
+          }
+        }
+      }
+    });
+
+    console.log("Community members found:", communityMembers);
+  
+    const communities = communityMembers.map(cm => ({
+      id: cm.community.id,
+      name: cm.community.name,
+      avatar: cm.community.avatar,
+      userCount: cm.community._count.members
+    }));
+  
+    return new Response(JSON.stringify({ communities }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" }
+    });
+  } catch (error: any) {
+    return new Response(
+      JSON.stringify({ error: error.message || "Ошибка сервера" }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
   }
 }

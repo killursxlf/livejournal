@@ -7,7 +7,7 @@ import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { UserRound, Mail, Calendar, Settings } from "lucide-react";
+import { UserRound, Mail, Calendar, Settings, Globe, MapPin } from "lucide-react";
 import { PostCard } from "@/components/PostCard";
 import { FollowButton } from "@/components/FollowButton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -26,6 +26,8 @@ interface UserProfileData {
   bio?: string;
   email?: string;
   createdAt: string;
+  language?: string;
+  location?: string;
   posts?: PostData[];
   likedPosts?: PostData[]; 
   savedPosts?: PostData[]; 
@@ -44,6 +46,7 @@ interface PostData {
   publishAt?: string; 
   status: string; 
   author: {
+    id: string;
     username: string;
     name: string;
     avatar?: string;
@@ -57,10 +60,11 @@ interface PostData {
 }
 
 interface CommentData {
-  id: number;
+  id: string;
   content: string;
   createdAt: string;
   author: {
+    id: string;
     username: string;
     name: string;
     avatar?: string;
@@ -267,6 +271,18 @@ export default function UserProfile() {
                     <span>Joined</span>
                     <span className="font-semibold">{joinedDate}</span>
                   </p>
+                  {user.location && (
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <MapPin className="w-4 h-4" />
+                      {user.location}
+                    </div>
+                  )}
+                  {user.language && (
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Globe className="w-4 h-4" />
+                      {user.language.toUpperCase()}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -292,6 +308,8 @@ export default function UserProfile() {
                       title={post.title}
                       content={post.content}
                       author={{
+                        id: post.author.id,
+                        username: post.author.username,
                         name: post.author?.name ?? "Unknown",
                         avatar: post.author?.avatar,
                       }}
@@ -312,6 +330,8 @@ export default function UserProfile() {
                           content: comment.content,
                           date: comment.createdAt,
                           author: comment.author?.name ?? "Unknown",
+                          authorId: comment.author.id,
+                          authorUserName: comment.author.username,
                           avatar: comment.author?.avatar,
                         })) ?? []
                       }
@@ -349,6 +369,8 @@ export default function UserProfile() {
                             title={post.title}
                             content={post.content}
                             author={{
+                              id: post.author.id,
+                              username: post.author.username,
                               name: post.author?.name ?? "Unknown",
                               avatar: post.author?.avatar,
                             }}
@@ -370,6 +392,8 @@ export default function UserProfile() {
                                 date: comment.createdAt,
                                 author: comment.author?.name ?? "Unknown",
                                 avatar: comment.author?.avatar,
+                                authorId: comment.author.id,
+                                authorUserName: comment.author.username,
                               })) ?? []
                             }
                             currentUser={currentUser}
@@ -402,6 +426,8 @@ export default function UserProfile() {
                       title={post.title}
                       content={post.content}
                       author={{
+                        id: post.author.id,
+                        username: post.author.username,
                         name: post.author?.name ?? "Unknown",
                         avatar: post.author?.avatar,
                       }}
@@ -423,6 +449,8 @@ export default function UserProfile() {
                           date: comment.createdAt,
                           author: comment.author?.name ?? "Unknown",
                           avatar: comment.author?.avatar,
+                          authorId: comment.author.id,
+                          authorUserName: comment.author.username,
                         })) ?? []
                       }
                       currentUser={currentUser}
@@ -445,6 +473,8 @@ export default function UserProfile() {
                       title={post.title}
                       content={post.content}
                       author={{
+                        id: post.author.id,
+                        username: post.author.username,
                         name: post.author?.name ?? "Unknown",
                         avatar: post.author?.avatar,
                       }}
@@ -466,6 +496,8 @@ export default function UserProfile() {
                           date: comment.createdAt,
                           author: comment.author?.name ?? "Unknown",
                           avatar: comment.author?.avatar,
+                          authorId: comment.author.id,
+                          authorUserName: comment.author.username,
                         })) ?? []
                       }
                       currentUser={currentUser}

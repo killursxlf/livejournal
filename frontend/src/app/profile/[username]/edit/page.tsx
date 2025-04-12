@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,6 +11,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Camera } from "lucide-react";
 import ImageCropper from "@/components/ImageCropper";
 import { useToast } from "@/components/ui/use-toast";
+import { Country, City } from "country-state-city";
+import ISO6391 from "iso-639-1";
 
 const backendURL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000";
 
@@ -20,6 +22,8 @@ interface User {
   bio?: string;
   username?: string;
   avatar?: string;
+  language?: string;
+  location?: string;
   error?: string;
 }
 
@@ -33,14 +37,26 @@ export default function EditProfile() {
   const [newUsername, setNewUsername] = useState("");
   const [avatar, setAvatar] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string>("");
+  const [language, setLanguage] = useState("");
+  const [country, setCountry] = useState("");
+  const [city, setCity] = useState("");
   const [error, setError] = useState("");
 
   const [isCropping, setIsCropping] = useState(false);
-  const [tempAvatarPreview, setTempAvatarPreview] = useState<string>("");
+  const [tempAvatarPreview, setTempAvatarPreview] = useState("");
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isMounted = useRef(true);
   const { toast } = useToast();
+
+  const countries = Country.getAllCountries();
+  const cities = country ? City.getCitiesOfCountry(country) : [];
+
+  const languageCodes = ISO6391.getAllCodes();
+  const languageOptions = languageCodes.map((code) => ({
+    code,
+    name: ISO6391.getName(code),
+  }));
 
   useEffect(() => {
     isMounted.current = true;
@@ -62,6 +78,23 @@ export default function EditProfile() {
             }
             setBio(data.bio || "");
             setNewUsername(data.username || "");
+            setLanguage(data.language || "");
+            if (data.location) {
+              const parts = data.location.split(",").map((p) => p.trim());
+              if (parts.length > 1) {
+                setCity(parts[0]);
+                const foundCountry = countries.find(
+                  (c) => c.name.toLowerCase() === parts[1].toLowerCase()
+                );
+                setCountry(foundCountry ? foundCountry.isoCode : "");
+              } else {
+                const foundCountry = countries.find(
+                  (c) => c.name.toLowerCase() === parts[0].toLowerCase()
+                );
+                setCountry(foundCountry ? foundCountry.isoCode : "");
+                setCity("");
+              }
+            }
           }
         })
         .catch(() => setError("Ошибка загрузки профиля"));
@@ -69,7 +102,7 @@ export default function EditProfile() {
     return () => {
       isMounted.current = false;
     };
-  }, [username]);
+  }, [username, countries]);
 
   useEffect(() => {
     return () => {
@@ -114,6 +147,13 @@ export default function EditProfile() {
     if (!user) return;
 
     const combinedName = `${firstName.trim()} ${lastName.trim()}`.trim();
+    const selectedCountry = Country.getCountryByCode(country);
+    const countryName = selectedCountry ? selectedCountry.name : country;
+    const locationCombined = country
+      ? city
+        ? `${city}, ${countryName}`
+        : countryName
+      : "";
 
     let res;
     if (avatar) {
@@ -123,6 +163,8 @@ export default function EditProfile() {
       formData.append("name", combinedName);
       formData.append("bio", bio);
       formData.append("username", newUsername);
+      formData.append("language", language);
+      formData.append("location", locationCombined);
       res = await fetch(`${backendURL}/api/update-profile`, {
         method: "POST",
         credentials: "include",
@@ -138,6 +180,8 @@ export default function EditProfile() {
           name: combinedName,
           bio,
           username: newUsername,
+          language,
+          location: locationCombined,
         }),
       });
     }
@@ -179,7 +223,9 @@ export default function EditProfile() {
               <div className="flex flex-col items-center gap-4">
                 <div className="relative">
                   <Avatar className="w-32 h-32">
-                    <AvatarImage src={avatarPreview || user.avatar || "/placeholder.svg"} />
+                    <AvatarImage
+                      src={avatarPreview || user.avatar || "/placeholder.svg"}
+                    />
                     <AvatarFallback>АП</AvatarFallback>
                   </Avatar>
                   <Button
@@ -249,6 +295,66 @@ export default function EditProfile() {
                     onChange={(e) => setNewUsername(e.target.value)}
                     className="bg-black/20 border-white/10"
                   />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="language">Язык (необязательно)</Label>
+                  <select
+                    id="language"
+                    value={language}
+                    onChange={(e) => setLanguage(e.target.value)}
+                    className="w-full p-2 bg-[#12161f] text-white border border-white/10 rounded"
+                  >
+                    <option value="">Не выбрано</option>
+                    {languageOptions.map((lang) => (
+                      <option key={lang.code} value={lang.code}>
+                        {lang.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="country">Страна (необязательно)</Label>
+                    <select
+                      id="country"
+                      value={country}
+                      onChange={(e) => {
+                        setCountry(e.target.value);
+                        setCity("");
+                      }}
+                      className="w-full p-2 bg-[#12161f] text-white border border-white/10 rounded"
+                    >
+                      <option value="">Не выбрано</option>
+                      {countries.map((c) => (
+                        <option key={c.isoCode} value={c.isoCode}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="city">Город (необязательно)</Label>
+                    <select
+                      id="city"
+                      value={city}
+                      onChange={(e) => setCity(e.target.value)}
+                      disabled={!country}
+                      className="w-full p-2 bg-[#12161f] text-white border border-white/10 rounded"
+                    >
+                      <option value="">Не выбрано</option>
+                      {country &&
+                        cities.map((city) => (
+                          <option
+                            key={`${city.name}-${city.stateCode}-${city.countryCode}`}
+                            value={city.name}
+                          >
+                            {city.name}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
                 </div>
 
                 <div className="space-y-2">

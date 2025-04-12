@@ -1,6 +1,8 @@
-import prisma from "../prisma";
+import { PrismaClient, PostStatus, PublicationType, PublicationMode } from "@prisma/client";
 import { corsHeaders } from "../utils/cors";
 import { verifyToken } from "./auth";
+
+const prisma = new PrismaClient();
 
 export async function getAllPosts(req: Request): Promise<Response> {
   try {
@@ -332,16 +334,17 @@ export async function createPost(req: Request) {
     const followers = await prisma.follows.findMany({
       where: { followingId: user.id },
     });
-
+  
     await Promise.all(
       followers.map(async (follower) => {
         await prisma.notification.create({
           data: {
             type: "new_post",
             senderId: user.id,
+            senderName: user.username,
             recipientId: follower.followerId,
             postId: post.id,
-            message: `Новый пост от ${user.name || user.email}.`,
+            message: `Новый пост от ${user.name}.`,
           },
         });
       })
@@ -672,4 +675,126 @@ export async function searchPosts(req: Request): Promise<Response> {
       headers: corsHeaders(),
     });
   }
+}
+
+export async function sharePost(req: Request) {
+  const token = await verifyToken(req);
+  if (!token || !token.id) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+  const userId = token.id;
+
+  let payload;
+  try {
+    payload = await req.json();
+  } catch (error) {
+    return new Response(JSON.stringify({ error: "Invalid JSON" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  const { title, content, publicationType, tags, communities } = payload;
+  
+  if (!title || !content) {
+    return new Response(JSON.stringify({ error: "Title and content are required" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+  
+  const finalPublicationType = publicationType || PublicationType.ARTICLE;
+  
+  let createdPosts = [];
+  if (Array.isArray(communities) && communities.length > 0) {
+    for (const communityId of communities) {
+      const membership = await prisma.communityMember.findUnique({
+        where: {
+          communityId_userId: { communityId, userId },
+        },
+      });
+      if (!membership) {
+        continue;
+      }
+      
+      const post = await prisma.post.create({
+        data: {
+          title,
+          content,
+          authorId: userId,
+          communityId,
+          publicationType: finalPublicationType,
+          publicationMode: PublicationMode.COMMUNITY,
+          status: PostStatus.PENDING,
+        },
+      });
+      createdPosts.push(post);
+      
+      if (Array.isArray(tags)) {
+        for (const tagName of tags) {
+          let tag = await prisma.tag.findUnique({
+            where: { name: tagName },
+          });
+          if (!tag) {
+            tag = await prisma.tag.create({
+              data: { name: tagName },
+            });
+          }
+          await prisma.postTag.create({
+            data: {
+              postId: post.id,
+              tagId: tag.id,
+            },
+          });
+        }
+      }
+    }
+    
+    if (createdPosts.length === 0) {
+      return new Response(JSON.stringify({ error: "You are not a member of the selected communities" }), {
+        status: 403,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+  } else {
+    const post = await prisma.post.create({
+      data: {
+        title,
+        content,
+        authorId: userId,
+        publicationType: finalPublicationType,
+        publicationMode: PublicationMode.USER,
+        status: PostStatus.PUBLISHED,
+        publishAt: new Date(),
+      },
+    });
+    createdPosts.push(post);
+    
+    if (Array.isArray(tags)) {
+      for (const tagName of tags) {
+        let tag = await prisma.tag.findUnique({
+          where: { name: tagName },
+        });
+        if (!tag) {
+          tag = await prisma.tag.create({
+            data: { name: tagName },
+          });
+        }
+        await prisma.postTag.create({
+          data: {
+            postId: post.id,
+            tagId: tag.id,
+          },
+        });
+      }
+    }
+  }
+  
+  return new Response(JSON.stringify({ message: "Post(s) created successfully", posts: createdPosts }), {
+    status: 201,
+    headers: { "Content-Type": "application/json" },
+  });
 }

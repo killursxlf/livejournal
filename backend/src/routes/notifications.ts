@@ -16,7 +16,7 @@ export async function createNotification(req: Request): Promise<Response> {
       );
     }
 
-    const { type, senderId, recipientId, postId, message } = await req.json();
+    const { type, senderId, senderName, recipientId, postId, message } = await req.json();
 
     if (senderId !== tokenUserId) {
       return new Response(
@@ -29,6 +29,7 @@ export async function createNotification(req: Request): Promise<Response> {
       data: {
         type,
         senderId,
+        senderName,
         recipientId,
         postId,
         message,

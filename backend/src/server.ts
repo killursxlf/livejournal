@@ -11,10 +11,11 @@ import {
   getUser,
   completeProfile,
   updateProfile,
+  getUserCommunities,
 } from "./routes/user";
 import { corsHeaders } from "./utils/cors";
 import { readFile } from "fs/promises";
-import { getAllPosts, getPost, createPost, updateDraft, deletePost, searchPosts } from "./routes/posts";
+import { getAllPosts, getPost, createPost, updateDraft, deletePost, searchPosts, sharePost } from "./routes/posts";
 import { toggleLike } from "./routes/like";
 import { addComment, DELETE } from "./routes/comment";
 import { toggleFollow } from "./routes/follow";
@@ -25,9 +26,13 @@ import {
   getNotifications, 
   markNotificationsAsRead 
 } from "./routes/notifications";
+import { createComplaint, updateComplaintStatus, getComplaints } from "./routes/complaints";
+import { chatHandler } from "./routes/chat";
+import { createCommunity, getCommunity, toggleCommunitySubscription, toggleCommunityNotifications, getPendingPosts, confrimPendingPosts, rejectPendingPost, getCommunities } from "./routes/community";
+import { getCategories } from "./routes/categories";
+
 
 serve({
-  hostname: "0.0.0.0",
   port: 3000,
   async fetch(req: Request) {
     const url = new URL(req.url);
@@ -75,9 +80,29 @@ serve({
           response = await searchPosts(req);
         } else if (url.pathname === "/api/get-tags" && req.method === "GET") {
           response = await getAllTags(req);
+        } else if (url.pathname === "/api/get-tags" && req.method === "GET") {
+          response = await getAllTags(req);
+        } else if (url.pathname === "/api/get-categories" && req.method === "GET") {
+          response = await getCategories(req);
         } else if (url.pathname === "/api/user" && req.method === "GET") {
           response = await getUser(req);
-        } else {
+        } else if (url.pathname === "/api/communities" && req.method === "GET") {
+          response = await getCommunities(req);
+        } else if (url.pathname.startsWith("/api/chat/") && url.pathname.endsWith("/message") && req.method === "POST") {
+          response = await chatHandler.sendMessage(req);
+        } else if (url.pathname.startsWith("/api/chat/") && url.pathname.endsWith("/messages") && req.method === "GET") {
+          response = await chatHandler.getMessages(req);
+        } else if (url.pathname.startsWith("/api/chat/") && url.pathname.endsWith("/read") && req.method === "PATCH") {
+          response = await chatHandler.markAsRead(req);
+        } else if (url.pathname.startsWith("/api/chat/") && url.pathname.endsWith("/forward") && req.method === "POST") {
+          response = await chatHandler.forwardMessage(req);
+        } else if (url.pathname.startsWith("/api/user/") && url.pathname.endsWith("/chats") && req.method === "GET") {
+          response = await chatHandler.getUserChats(req);
+        } else if (url.pathname === "/api/community" && req.method === "GET") {
+          response = await getCommunity(req);
+        }
+
+        else {
           const user = await verifyToken(req);
           if (!user) {
             response = new Response(JSON.stringify({ error: "Не авторизован" }), {
@@ -113,6 +138,28 @@ serve({
             response = await createNotification(req);
           } else if (url.pathname === "/api/notifications" && req.method === "PUT") {
             response = await markNotificationsAsRead(req);
+          } else if (url.pathname === "/api/complaints" && req.method === "GET") {
+            response = await getComplaints(req);
+          } else if (url.pathname === "/api/complaints" && req.method === "POST") {
+            response = await createComplaint(req);
+          } else if (url.pathname === "/api/complaints" && req.method === "PUT") {
+            response = await updateComplaintStatus(req);
+          } else if (url.pathname === "/api/community/create" && req.method === "POST") {
+            response = await createCommunity(req);
+          } else if (url.pathname === "/api/user/communities" && req.method === "GET") {
+            response = await getUserCommunities(req);
+          } else if (url.pathname === "/api/community/moderation/posts" && req.method === "GET") {
+            response = await getPendingPosts(req);
+          } else if (url.pathname === "/api/community/subscribe" && req.method === "POST") {
+            response = await toggleCommunitySubscription(req);
+          } else if (url.pathname === "/api/user/share-post" && req.method === "POST") {
+            response = await sharePost(req);
+          } else if (url.pathname === "/api/community/moderation/update-post" && req.method === "POST") {
+            response = await confrimPendingPosts(req);
+          } else if (url.pathname === "/api/community/moderation/reject-post" && req.method === "POST") {
+            response = await rejectPendingPost(req);
+          } else if (url.pathname === "/api/community/subscribe/notifications" && req.method === "POST") {
+            response = await toggleCommunityNotifications(req);
           } else {
             response = new Response("Страница не найдена", { status: 404 });
           }

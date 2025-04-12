@@ -3,7 +3,18 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { MessageSquare, ChevronDown, ChevronUp, Send, Share2, Copy, Facebook, X } from "lucide-react";
+import {
+  MessageSquare,
+  ChevronDown,
+  ChevronUp,
+  Send,
+  Share2,
+  Copy,
+  Facebook,
+  X,
+  Flag,
+  Trash2,
+} from "lucide-react"; 
 import { LikeButton } from "@/components/LikeButton";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -18,10 +29,20 @@ import {
 import { useToast } from "@/components/ui/use-toast";
 import { SavePostButton } from "@/components/savePostButton";
 import ReactMarkdown from "react-markdown";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 
 export interface Comment {
-  id: number;
+  id: string;
   author: string;
+  authorId: string;
+  authorUserName: string;
   avatar?: string;
   content: string;
   date: string;
@@ -39,7 +60,7 @@ export interface PostCardProps {
   id: string;
   title: string;
   content: string;
-  author: { name: string; avatar?: string };
+  author: { id: string; username: string; name: string; avatar?: string };
   createdAt: Date;
   postTags: { tag: { name: string } }[];
   likeCount: number;
@@ -49,7 +70,30 @@ export interface PostCardProps {
   currentUser?: CurrentUser;
   isSaved?: boolean;
   scheduledMessage?: string;
+  publicationMode?: "USER" | "COMMUNITY";
+  community?: { name: string; avatar: string };
 }
+
+type ComplaintTarget = {
+  type: "post" | "comment";
+  id: string;
+} | null;
+
+interface ComplaintSubmission {
+  reason: string;
+  description: string;
+  userId: string;
+  postId?: string;
+  commentId?: string;
+}
+
+const REPORT_REASONS: { id: string; label: string }[] = [
+  { id: "spam", label: "Спам" },
+  { id: "inappropriate", label: "Неприемлемый контент" },
+  { id: "fraud", label: "Мошенничество" },
+  { id: "harassment", label: "Оскорбления" },
+  { id: "other", label: "Другое" },
+];
 
 export const PostCard = ({
   id,
@@ -64,7 +108,9 @@ export const PostCard = ({
   comments,
   currentUser,
   isSaved = false,
-  scheduledMessage, 
+  scheduledMessage,
+  publicationMode = "USER",
+  community,
 }: PostCardProps) => {
   const { toast } = useToast();
 
@@ -76,12 +122,21 @@ export const PostCard = ({
     minute: "2-digit",
   });
 
+  const displayAuthor =
+    publicationMode === "COMMUNITY" && community ? community : author;
 
   const [localComments, setLocalComments] = useState<Comment[]>(comments || []);
   const [showComments, setShowComments] = useState(false);
   const [showAllComments, setShowAllComments] = useState(false);
   const [newComment, setNewComment] = useState("");
   const [postUrl, setPostUrl] = useState("");
+
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000";
+  const [reportDialogOpen, setReportDialogOpen] = useState<boolean>(false);
+  const [selectedReason, setSelectedReason] = useState<string>("");
+  const [additionalInfo, setAdditionalInfo] = useState("");
+  const [selectedComplaintTarget, setSelectedComplaintTarget] =
+    useState<ComplaintTarget>(null);
 
   useEffect(() => {
     if (typeof window !== "undefined" && id) {
@@ -90,7 +145,9 @@ export const PostCard = ({
     setLocalComments(comments || []);
   }, [comments, id]);
 
-  const visibleComments = showAllComments ? localComments : localComments.slice(0, 2);
+  const visibleComments = showAllComments
+    ? localComments
+    : localComments.slice(0, 2);
 
   const handleSubmitComment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -119,13 +176,14 @@ export const PostCard = ({
       }
 
       const data = await response.json();
-      console.log("Ответ от API:", data);
 
       const convertedComment: Comment = {
         id: data.id,
+        authorId: data.author.id,
         content: data.content,
         date: data.createdAt,
         author: data.author.name,
+        authorUserName: data.author.username,
         avatar: data.author.avatar,
       };
 
@@ -164,13 +222,19 @@ export const PostCard = ({
 
     switch (platform) {
       case "telegram":
-        shareUrl = `https://t.me/share/url?url=${encodeURIComponent(postUrl)}&text=${encodeURIComponent(title)}`;
+        shareUrl = `https://t.me/share/url?url=${encodeURIComponent(
+          postUrl
+        )}&text=${encodeURIComponent(title)}`;
         break;
       case "facebook":
-        shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(postUrl)}`;
+        shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
+          postUrl
+        )}`;
         break;
       case "x":
-        shareUrl = `https://x.com/intent/tweet?url=${encodeURIComponent(postUrl)}&text=${encodeURIComponent(title)}`;
+        shareUrl = `https://x.com/intent/tweet?url=${encodeURIComponent(
+          postUrl
+        )}&text=${encodeURIComponent(title)}`;
         break;
       default:
         return;
@@ -179,14 +243,16 @@ export const PostCard = ({
     window.open(shareUrl, "_blank", "width=600,height=400");
   };
 
-  const handleDeleteComment = async (commentId: number) => {
+  const handleDeleteComment = async (commentId: string) => {
     try {
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000";
-      const response = await fetch(`${backendUrl}/api/comment-delete?id=${commentId}`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-      });
+      const response = await fetch(
+        `${backendUrl}/api/comment-delete?id=${commentId}`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+        }
+      );
 
       const data = await response.json();
 
@@ -212,29 +278,91 @@ export const PostCard = ({
     }
   };
 
+  const handleReportComment = (commentId: string) => {
+    setSelectedComplaintTarget({ type: "comment", id: commentId });
+    setReportDialogOpen(true);
+  };  
+
+  const handleSubmitReport = async () => {
+    if (!selectedReason) {
+      toast({
+        title: "Ошибка",
+        description: "Пожалуйста, выберите причину жалобы",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!selectedComplaintTarget || !currentUser) {
+      toast({
+        title: "Ошибка",
+        description: "Цель жалобы не определена",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const bodyData: ComplaintSubmission = {
+        reason: selectedReason,
+        description: additionalInfo,
+        userId: currentUser.id,
+      };
+
+      if (selectedComplaintTarget.type === "comment") {
+        bodyData.commentId = selectedComplaintTarget.id;
+      }
+
+      const response = await fetch(`${backendUrl}/api/complaints`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(bodyData),
+      });
+      if (!response.ok) {
+        throw new Error("Ошибка отправки жалобы");
+      }
+      await response.json();
+      toast({
+        title: "Жалоба отправлена",
+        description: "Спасибо за обращение. Мы рассмотрим вашу жалобу.",
+      });
+      setReportDialogOpen(false);
+      setSelectedReason("");
+      setAdditionalInfo("");
+      setSelectedComplaintTarget(null);
+    } catch (error: unknown) {
+      const err = error as Error;
+      toast({
+        title: "Ошибка",
+        description: err.message || "Ошибка при отправке жалобы",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <Card className="group hover:border-primary/50 transition-all duration-300 backdrop-blur-sm bg-black/20 hover:bg-black/30 border-white/5 shadow-lg animate-fade-in relative">
       <CardHeader className="flex flex-row items-center gap-4">
-        <Avatar>
-          {author.avatar ? (
-            <AvatarImage src={author.avatar} alt={author.name} />
+      <Avatar>
+          {displayAuthor.avatar ? (
+            <AvatarImage src={displayAuthor.avatar} alt={displayAuthor.name} />
           ) : (
-            <AvatarFallback>{author.name[0]}</AvatarFallback>
+            <AvatarFallback>{displayAuthor.name.charAt(0)}</AvatarFallback>
           )}
         </Avatar>
         <div className="flex-1">
-        <Link href={`/posts/${id}`}>
-          <CardTitle className="text-lg text-white transition-colors font-medium">
-            {title}
-          </CardTitle>
-        </Link>
+          <Link href={`/posts/${id}`}>
+            <CardTitle className="text-lg text-white transition-colors font-medium">
+              {title}
+            </CardTitle>
+          </Link>
           {scheduledMessage && (
             <p className="text-xs italic text-muted-foreground mt-1">
               {scheduledMessage}
             </p>
           )}
           <p className="text-sm text-muted-foreground/80">
-            {author.name} • {formattedDate}
+            {displayAuthor.name} • {formattedDate}
           </p>
         </div>
         <div className="flex items-center gap-4 text-muted-foreground">
@@ -308,7 +436,6 @@ export const PostCard = ({
       </CardHeader>
       <CardContent>
         <div className="clamped-text text-muted-foreground">
-          {/* Используем ReactMarkdown для рендеринга контента */}
           <ReactMarkdown>{content}</ReactMarkdown>
         </div>
         {postTags && postTags.length > 0 && (
@@ -361,19 +488,26 @@ export const PostCard = ({
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-[160px] backdrop-blur-md bg-background/95 border-white/10">
-                        <DropdownMenuItem onClick={() => handleDeleteComment(comment.id)} className="text-red-500 focus:text-red-500">
-                          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2">
-                            <path d="M3 6h18" />
-                            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-                            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-                          </svg>
-                          Удалить
+                        <DropdownMenuItem onClick={() => handleReportComment(comment.id)}>
+                          <Flag className="w-4 h-4 mr-2" />
+                          Пожаловаться
                         </DropdownMenuItem>
+                        {currentUser &&
+                          (currentUser.username === comment.authorUserName ||
+                          currentUser.username === author.username) && (
+                            <DropdownMenuItem
+                              onClick={() => handleDeleteComment(comment.id)}
+                              className="text-red-500 focus:text-red-500"
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Удалить
+                            </DropdownMenuItem>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
                 </div>
-                <p className="text-sm text-muted-foreground/90">{comment.content}</p>
+                <p className="text-sm text-muted-foreground/90 mt-1">{comment.content}</p>
               </div>
             </div>
           ))}
@@ -392,6 +526,58 @@ export const PostCard = ({
           )}
         </div>
       )}
+      {/* Диалог отправки жалобы (только для комментариев) */}
+      <Dialog open={reportDialogOpen} onOpenChange={setReportDialogOpen}>
+        <DialogContent className="sm:max-w-[425px] gap-6 backdrop-blur-xl bg-black/60 border-white/10">
+          <DialogHeader>
+            <DialogTitle className="text-white/90">Отправить жалобу</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label className="text-white/90">Причина жалобы</Label>
+              <div className="grid gap-2">
+                {REPORT_REASONS.map((reason: { id: string; label: string }) => (
+                  <Button
+                    key={reason.id}
+                    variant={selectedReason === reason.id ? "default" : "outline"}
+                    className={`justify-start ${
+                      selectedReason === reason.id
+                        ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                        : "bg-black/40 text-white/90 border-white/10 hover:bg-white/10 hover:text-white"
+                    }`}
+                    onClick={() => setSelectedReason(reason.id)}
+                  >
+                    {reason.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-white/90">Дополнительная информация</Label>
+              <Textarea
+                placeholder="Опишите подробнее причину жалобы..."
+                value={additionalInfo}
+                onChange={(e) => setAdditionalInfo(e.target.value)}
+                className="min-h-[100px] bg-black/40 border-white/10 text-white/90 placeholder:text-white/50"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setReportDialogOpen(false)}
+              className="bg-black/40 text-white/90 border-white/10 hover:bg-white/10"
+            >
+              Отмена
+            </Button>
+            <Button onClick={handleSubmitReport} className="bg-primary text-primary-foreground hover:bg-primary/90">
+              Отправить
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 };
+
+

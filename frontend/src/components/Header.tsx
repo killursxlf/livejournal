@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useSession, signIn, signOut } from "next-auth/react";
-import { User, Search, X } from "lucide-react";
+import { Search, X } from "lucide-react";
 import { Button } from "./ui/button";
 import {
   NavigationMenu,
@@ -112,24 +112,21 @@ const Header = () => {
               {isSearchOpen ? <X className="h-5 w-5" /> : <Search className="h-5 w-5" />}
             </Button>
           </form>
-          <Button asChild variant="ghost" size="icon" className="text-foreground hover:bg-accent">
-            <Link href={profileLink}>
-              <User className="h-5 w-5" />
-            </Link>
-          </Button>
           {session ? (
             <div className="flex items-center gap-4">
               <NotificationsPopover />
-              {avatar && (
-                <Image
-                  src={avatar}
-                  alt="Аватар"
-                  width={32}
-                  height={32}
-                  className="rounded-full border"
-                />
-              )}
-              <span className="text-foreground">{user?.name || "Профиль"}</span>
+              <Link href={profileLink} className="flex items-center gap-2">
+                {avatar && (
+                  <Image
+                    src={avatar}
+                    alt="Аватар"
+                    width={32}
+                    height={32}
+                    className="rounded-full border"
+                  />
+                )}
+                <span className="text-foreground">{user?.name || "Профиль"}</span>
+              </Link>
               <Button
                 onClick={() => signOut()}
                 variant="outline"
