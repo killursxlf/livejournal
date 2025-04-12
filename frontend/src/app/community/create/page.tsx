@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,60 +24,63 @@ import {
 import { Shield, Image as ImageIcon, X, Upload, Users } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import Image from "next/image";
-import ImageCropper from "@/components/ImageCropper"; // Проверьте путь импорта
+import ImageCropper from "@/components/ImageCropper"; 
 
 const backendURL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000";
 
-const categories = [
-  { id: "1", name: "Путешествия и отдых" },
-  { id: "2", name: "Технологии" },
-  { id: "3", name: "Искусство и фотография" },
-  { id: "4", name: "Спорт" },
-  { id: "5", name: "Здоровье и фитнес" },
-  { id: "6", name: "Кулинария" },
-  { id: "7", name: "Литература" },
-  { id: "8", name: "Музыка" },
-  { id: "9", name: "Кино и сериалы" },
-  { id: "10", name: "Образование" },
-  { id: "11", name: "Бизнес и финансы" },
-];
+interface Category {
+  id: string;
+  name: string;
+}
 
 const CreateCommunity = () => {
   const router = useRouter();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Текстовые поля формы
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("");
   const [rules, setRules] = useState([{ text: "" }]);
 
-  // Для превью изображений
   const [coverImage, setCoverImage] = useState<string | null>(null);
   const [avatarImage, setAvatarImage] = useState<string | null>(null);
 
-  // Для файлов, которые будут отправлены
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
 
-  // Состояния ошибок
   const [nameError, setNameError] = useState("");
   const [descriptionError, setDescriptionError] = useState("");
   const [categoryError, setCategoryError] = useState("");
 
-  // Состояния для работы с обрезкой изображений
   const [rawCoverImage, setRawCoverImage] = useState<string | null>(null);
   const [rawAvatarImage, setRawAvatarImage] = useState<string | null>(null);
   const [showCoverCropper, setShowCoverCropper] = useState(false);
   const [showAvatarCropper, setShowAvatarCropper] = useState(false);
 
-  // Функция для обработки добавления правила
+  const [categories, setCategories] = useState<Category[]>([]);
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const res = await fetch(`${backendURL}/api/get-categories`);
+        if (res.ok) {
+          const data: Category[] = await res.json();
+          setCategories(data);
+        } else {
+          console.error("Ошибка получения категорий");
+        }
+      } catch (error) {
+        console.error("Ошибка получения категорий", error);
+      }
+    };
+    fetchCategories();
+  }, []);
+
   const addRule = () => {
     setRules([...rules, { text: "" }]);
   };
 
-  // Удаление правила
   const removeRule = (index: number) => {
     if (rules.length > 1) {
       const newRules = [...rules];
@@ -86,14 +89,12 @@ const CreateCommunity = () => {
     }
   };
 
-  // Изменение правила
   const updateRule = (index: number, text: string) => {
     const newRules = [...rules];
     newRules[index] = { text };
     setRules(newRules);
   };
 
-  // Обработка загрузки фонового изображения
   const handleCoverImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -108,7 +109,6 @@ const CreateCommunity = () => {
     }
   };
 
-  // Обработка загрузки аватарки
   const handleAvatarImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -123,7 +123,6 @@ const CreateCommunity = () => {
     }
   };
 
-  // Завершение обрезки фонового изображения
   const handleCoverCropComplete = (croppedFile: File) => {
     const url = URL.createObjectURL(croppedFile);
     setCoverImage(url);
@@ -132,7 +131,6 @@ const CreateCommunity = () => {
     setRawCoverImage(null);
   };
 
-  // Завершение обрезки аватарки
   const handleAvatarCropComplete = (croppedFile: File) => {
     const url = URL.createObjectURL(croppedFile);
     setAvatarImage(url);
@@ -141,7 +139,6 @@ const CreateCommunity = () => {
     setRawAvatarImage(null);
   };
 
-  // Отмена обрезки
   const cancelCoverCrop = () => {
     setShowCoverCropper(false);
     setRawCoverImage(null);
@@ -152,7 +149,6 @@ const CreateCommunity = () => {
     setRawAvatarImage(null);
   };
 
-  // Удаление превью
   const removeCoverImage = () => {
     setCoverImage(null);
     setCoverFile(null);
@@ -163,7 +159,6 @@ const CreateCommunity = () => {
     setAvatarFile(null);
   };
 
-  // Валидация формы
   const validateForm = () => {
     let isValid = true;
 
@@ -197,14 +192,13 @@ const CreateCommunity = () => {
     return isValid;
   };
 
-  // Отправка формы с использованием FormData (файлы отправляются, а не только URL)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!validateForm()) return;
     setIsSubmitting(true);
 
-    const rulesText = rules.map(rule => rule.text).join("\n");
+    const rulesText = rules.map((rule) => rule.text).join("\n");
 
     const formData = new FormData();
     formData.append("name", name);
@@ -252,7 +246,7 @@ const CreateCommunity = () => {
           onCancel={cancelCoverCrop}
           minWidth={1200}
           minHeight={300}
-          aspect={1200 / 300} // Соотношение 4:1 для фонового изображения
+          aspect={1200 / 300}
         />
       )}
       {showAvatarCropper && rawAvatarImage && (
@@ -262,7 +256,7 @@ const CreateCommunity = () => {
           onCancel={cancelAvatarCrop}
           minWidth={200}
           minHeight={200}
-          aspect={1} // Квадратное соотношение для аватарки
+          aspect={1}
         />
       )}
 
@@ -270,7 +264,6 @@ const CreateCommunity = () => {
         <div className="max-w-4xl mx-auto">
           <h1 className="text-3xl font-bold mb-6 animate-fade-in">Создать сообщество</h1>
           <form onSubmit={handleSubmit} className="space-y-8">
-            {/* Превью сообщества */}
             <Card className="backdrop-blur-sm bg-black/20 border-white/5 overflow-hidden shadow-lg animate-fade-in">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -332,7 +325,6 @@ const CreateCommunity = () => {
               </CardContent>
             </Card>
 
-            {/* Основная информация */}
             <Card className="backdrop-blur-sm bg-black/20 border-white/5 overflow-hidden shadow-lg animate-fade-in">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -381,8 +373,6 @@ const CreateCommunity = () => {
                 </div>
               </CardContent>
             </Card>
-
-            {/* Медиа */}
             <Card className="backdrop-blur-sm bg-black/20 border-white/5 overflow-hidden shadow-lg animate-fade-in">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -438,7 +428,6 @@ const CreateCommunity = () => {
               </CardContent>
             </Card>
 
-            {/* Правила сообщества */}
             <Card className="backdrop-blur-sm bg-black/20 border-white/5 overflow-hidden shadow-lg animate-fade-in">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -475,7 +464,6 @@ const CreateCommunity = () => {
               </CardContent>
             </Card>
 
-            {/* Кнопки действий */}
             <CardFooter className="flex justify-end gap-4 p-0">
               <Button type="button" variant="outline" onClick={() => router.back()}>
                 Отмена

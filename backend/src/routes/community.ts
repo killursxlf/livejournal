@@ -519,3 +519,95 @@ export async function rejectPendingPost(req: Request): Promise<Response> {
     );
   }
 }
+
+export async function getCommunities(req: Request): Promise<Response> {
+  try {
+    const url = new URL(req.url);
+    const search = url.searchParams.get("q") || "";
+    const category = url.searchParams.get("category") || url.searchParams.get("categoryId") || "";
+    const sort = url.searchParams.get("sort") || "newest";
+
+    const where: any = {};
+
+    if (search) {
+      where.AND = [
+        {
+          OR: [
+            { name: { contains: search, mode: "insensitive" } },
+            { description: { contains: search, mode: "insensitive" } },
+          ],
+        },
+      ];
+    }
+
+    if (category && category !== "all") {
+      where.categoryId = category;
+    }
+
+    let orderBy = {};
+    switch (sort) {
+      case "newest":
+        orderBy = { createdAt: "desc" };
+        break;
+      case "oldest":
+        orderBy = { createdAt: "asc" };
+        break;
+      case "alphabetical":
+        orderBy = { name: "asc" };
+        break;
+      case "popularity":
+        orderBy = { _count: { members: "desc" } };
+        break;
+      default:
+        orderBy = { createdAt: "desc" };
+    }
+
+    const communitiesRaw = await prisma.community.findMany({
+      where,
+      orderBy,
+      include: {
+        owner: true,
+        category: true,
+        posts: {
+          include: {
+            postTags: { include: { tag: true } },
+          },
+        },
+        _count: { select: { posts: true, members: true } },
+      },
+    });
+
+    const communities = communitiesRaw.map((community) => {
+      const postsCount = community._count.posts;
+      const membersCount = community._count.members;
+      const tagsSet = new Set<string>();
+      community.posts.forEach((post) => {
+        post.postTags.forEach((pt) => {
+          if (pt.tag && pt.tag.name) {
+            tagsSet.add(pt.tag.name);
+          }
+        });
+      });
+      const aggregatedTags = Array.from(tagsSet);
+      return {
+        ...community,
+        postsCount,
+        membersCount,
+        tags: aggregatedTags,
+      };
+    });
+
+    return new Response(JSON.stringify(communities), {
+      headers: {
+        "Content-Type": "application/json",
+        ...corsHeaders(),
+      },
+    });
+  } catch (err) {
+    console.error("Ошибка при получении сообществ:", err);
+    return new Response(JSON.stringify({ error: "Ошибка сервера" }), {
+      status: 500,
+      headers: corsHeaders(),
+    });
+  }
+}

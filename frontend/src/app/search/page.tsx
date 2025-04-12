@@ -47,16 +47,42 @@ interface PostResult {
   isSaved?: boolean;
 }
 
-interface CommentFromServer {
-  id: string;
-  content: string;
-  createdAt: string;
-  author: {
-    username: string;
-    name: string;
-    avatar: string;
+function transformAuthor(author: any) {
+  return {
+    id: author.username,       
+    username: author.username,
+    name: author.name,
+    avatar: author.avatar,
   };
 }
+
+function transformComment(comment: any) {
+  return {
+    id: comment.id,
+    content: comment.content,
+    date: new Date(comment.createdAt).toISOString(),
+    author: comment.author.name,         
+    authorId: comment.author.username,     
+    authorUserName: comment.author.username,
+    avatar: comment.author.avatar,
+  };
+}
+
+function transformPost(post: any) {
+  return {
+    id: post.id,
+    title: post.title,
+    content: post.content,
+    author: transformAuthor(post.author),
+    createdAt: new Date(post.createdAt),
+    postTags: post.postTags,
+    likeCount: post.likeCount,
+    isLiked: post.isLiked ?? false,
+    commentCount: post.commentCount,
+    comments: post.comments?.map(transformComment) || [],
+  };
+}
+
 
 export default function Search() {
   const searchParams = useSearchParams();
@@ -274,28 +300,10 @@ export default function Search() {
               </div>
               {searchResults.length > 0 ? (
                 <div className="space-y-6">
-                  {searchResults.map((post) => (
-                    <PostCard
-                      key={post.id}
-                      id={post.id}
-                      title={post.title}
-                      content={post.content}
-                      author={{ name: post.author.name, avatar: post.author.avatar }}
-                      createdAt={new Date(post.createdAt)}
-                      postTags={post.postTags}
-                      likeCount={post.likeCount}
-                      isLiked={post.isLiked ?? false}
-                      commentCount={post.commentCount}
-                      comments={
-                        post.comments?.map((comment: CommentFromServer) => ({
-                          id: Number(comment.id),
-                          content: comment.content,
-                          date: new Date(comment.createdAt).toISOString(),
-                          author: comment.author.name,
-                        })) || []
-                      }
-                    />
-                  ))}
+                {searchResults.map((post) => {
+                  const transformedPost = transformPost(post);
+                  return <PostCard key={transformedPost.id} {...transformedPost} />;
+                })}
                 </div>
               ) : (
                 <div className="text-center py-8">

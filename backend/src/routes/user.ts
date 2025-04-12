@@ -141,16 +141,18 @@ export async function getUser(req: Request): Promise<Response> {
 
     const now = new Date();
     const createdPosts = user.posts
-      ? (isOwner
-          ? user.posts
-          : user.posts.filter(
-              (post) =>
-                post.status === "PUBLISHED" &&
-                post.publishAt &&
-                new Date(post.publishAt) <= now
-            )
-        ).map(mapPost)
-      : [];
+    ? (isOwner
+        ? user.posts.filter(post => !post.communityId)
+        : user.posts.filter(
+            (post) =>
+              post.status === "PUBLISHED" &&
+              post.publishAt &&
+              new Date(post.publishAt) <= now &&
+              !post.communityId
+          )
+      ).map(mapPost)
+    : [];
+  
 
     const likedPostsData = await prisma.post.findMany({
       where: {

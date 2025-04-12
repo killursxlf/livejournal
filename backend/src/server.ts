@@ -28,7 +28,9 @@ import {
 } from "./routes/notifications";
 import { createComplaint, updateComplaintStatus, getComplaints } from "./routes/complaints";
 import { chatHandler } from "./routes/chat";
-import { createCommunity, getCommunity, toggleCommunitySubscription, toggleCommunityNotifications, getPendingPosts, confrimPendingPosts, rejectPendingPost } from "./routes/community";
+import { createCommunity, getCommunity, toggleCommunitySubscription, toggleCommunityNotifications, getPendingPosts, confrimPendingPosts, rejectPendingPost, getCommunities } from "./routes/community";
+import { getCategories } from "./routes/categories";
+
 
 serve({
   port: 3000,
@@ -78,8 +80,14 @@ serve({
           response = await searchPosts(req);
         } else if (url.pathname === "/api/get-tags" && req.method === "GET") {
           response = await getAllTags(req);
+        } else if (url.pathname === "/api/get-tags" && req.method === "GET") {
+          response = await getAllTags(req);
+        } else if (url.pathname === "/api/get-categories" && req.method === "GET") {
+          response = await getCategories(req);
         } else if (url.pathname === "/api/user" && req.method === "GET") {
           response = await getUser(req);
+        } else if (url.pathname === "/api/communities" && req.method === "GET") {
+          response = await getCommunities(req);
         } else if (url.pathname.startsWith("/api/chat/") && url.pathname.endsWith("/message") && req.method === "POST") {
           response = await chatHandler.sendMessage(req);
         } else if (url.pathname.startsWith("/api/chat/") && url.pathname.endsWith("/messages") && req.method === "GET") {

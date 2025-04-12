@@ -120,7 +120,6 @@ export default function EditPost() {
     }
   };
 
-  // Новая функция для создания заявки на публикацию поста в выбранных сообществах
   const submitPostApplication = async () => {
     const publicationTypeMapping: Record<string, string> = {
       Article: "ARTICLE",
