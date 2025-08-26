@@ -1,15 +1,16 @@
 # backend
 
-To install dependencies:
+## To install dependencies:
 
 ```bash
 bun install
+
+bunx prisma generate --no-engine
 ```
 
-To run:
+## To run:
 
 ```bash
-bun run index.ts
+bun run src/start.ts
 ```
-
-This project was created using `bun init` in bun v1.2.2. [Bun](https://bun.sh) is a fast all-in-one JavaScript runtime.
+The server will start on http://localhost:3000 URL.
