@@ -54,7 +54,11 @@ export const authOptions: NextAuthOptions = {
           body: JSON.stringify({ email: user.email, name: user.name }),
         });
 
-        if (!res.ok) return false;
+        if (!res.ok) {
+          const text = await res.text().catch(() => "");
+          console.error("google login failed", res.status, text);
+          return false;
+        }
 
         const data = await res.json();
 
