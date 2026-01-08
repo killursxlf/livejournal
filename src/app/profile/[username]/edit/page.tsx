@@ -50,7 +50,7 @@ export default function EditProfile() {
   const { toast } = useToast();
 
   const countries = Country.getAllCountries();
-  const cities = country ? City.getCitiesOfCountry(country) : [];
+  const cities = City.getCitiesOfCountry(country) ?? [];
 
   const languageCodes = ISO6391.getAllCodes();
   const languageOptions = languageCodes.map((code) => ({

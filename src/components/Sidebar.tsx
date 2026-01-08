@@ -23,12 +23,14 @@ interface SidebarProps {
   setPublishTime: (value: string) => void;
   onPublish: () => void;
   onSaveDraft: () => void;
-  onShare: () => void; // новый пропс
+  
+  onShare?: () => void;
+  selectedCommunities?: string[];
+  setSelectedCommunities?: (communities: string[]) => void;
+
   versions?: VersionType[];
   onSelectVersion?: (version: VersionType) => void;
   onRestoreCurrent?: () => void;
-  selectedCommunities: string[];
-  setSelectedCommunities: (communities: string[]) => void;
 }
 
 export default function Sidebar({
@@ -47,6 +49,11 @@ export default function Sidebar({
   selectedCommunities,
   setSelectedCommunities,
 }: SidebarProps) {
+  const canShareToCommunities =
+    typeof onShare === "function" &&
+    Array.isArray(selectedCommunities) &&
+    typeof setSelectedCommunities === "function";
+
   return (
     <aside className="w-full lg:w-64 space-y-6 animate-fade-in">
       <div className="bg-muted p-4 rounded-md shadow">
@@ -66,7 +73,11 @@ export default function Sidebar({
             Publish
           </button>
         </div>
-        <h2 className="text-lg font-semibold mb-2 text-foreground">Version History</h2>
+
+        <h2 className="text-lg font-semibold mb-2 text-foreground">
+          Version History
+        </h2>
+
         {versions.length > 0 ? (
           <ul className="space-y-2">
             {versions.map((version) => (
@@ -87,6 +98,7 @@ export default function Sidebar({
         ) : (
           <p className="text-sm text-muted-foreground">No versions available</p>
         )}
+
         {versions.length > 0 && onRestoreCurrent && (
           <button
             onClick={onRestoreCurrent}
@@ -97,16 +109,20 @@ export default function Sidebar({
         )}
       </div>
 
-      <div className="bg-muted p-4 rounded-md shadow">
-        <CommunitySelector
-          selectedCommunities={selectedCommunities}
-          setSelectedCommunities={setSelectedCommunities}
-          onShare={onShare}
-        />
-      </div>
+      {canShareToCommunities && (
+        <div className="bg-muted p-4 rounded-md shadow">
+          <CommunitySelector
+            selectedCommunities={selectedCommunities}
+            setSelectedCommunities={setSelectedCommunities}
+            onShare={onShare}
+          />
+        </div>
+      )}
 
       <div className="bg-muted p-4 rounded-md shadow">
-        <h2 className="text-lg font-semibold mb-2 text-foreground">Additional Settings</h2>
+        <h2 className="text-lg font-semibold mb-2 text-foreground">
+          Additional Settings
+        </h2>
         <div className="space-y-2">
           <div className="block text-sm font-medium text-muted-foreground">
             Post Type
@@ -127,6 +143,7 @@ export default function Sidebar({
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
+
           <label className="block text-sm font-medium text-muted-foreground">
             Publish Date
             <input
@@ -136,6 +153,7 @@ export default function Sidebar({
               className="mt-1 block w-full pl-3 pr-10 py-2 text-base bg-background border border-border text-foreground focus:outline-none focus:ring-primary focus:border-primary sm:text-sm rounded-md"
             />
           </label>
+
           {publishDate && (
             <label className="block text-sm font-medium text-muted-foreground">
               Publish Time

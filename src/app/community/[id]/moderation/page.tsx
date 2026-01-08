@@ -160,10 +160,13 @@ const CommunityModeration: React.FC = () => {
       });
       setPendingPosts((prevPosts) => prevPosts.filter((post) => post.id !== viewingPost?.id));
       handleCloseDialog();
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : "Ошибка отклонения поста";
+
       toast({
         variant: "destructive",
-        description: error.message || "Ошибка отклонения поста",
+        description: message,
       });
     }
   };

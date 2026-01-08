@@ -59,3 +59,10 @@ export interface Post {
     };
     publicationMode: "USER" | "COMMUNITY" | undefined;
 }
+
+export type CroppedAreaPixels = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
