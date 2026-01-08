@@ -48,7 +48,7 @@ export const authOptions: NextAuthOptions = {
       if (!user) return false;
 
       if (account?.provider === "google") {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/oauth/google/login`, {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/oauth/google/check`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email: user.email, name: user.name }),
