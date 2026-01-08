@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { UserRound, Mail, Calendar, Settings, Globe, MapPin } from "lucide-react";
 import { PostCard } from "@/components/PostCard";
 import { FollowButton } from "@/components/FollowButton";
+import { apiFetch } from "@/lib/auth/apiFetch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   DropdownMenu,
@@ -116,35 +117,41 @@ export default function UserProfile() {
     if (!username || status === "loading") return;
 
     const decodedUsername = decodeURIComponent(username as string);
+    const jwt = session?.user?.accessToken;
 
-    fetch(
-      `${backendURL}/api/user?username=${decodedUsername}&userId=${userId || ""}`,
-      { credentials: "include" }
-    )
-      .then((res) => res.json())
-      .then((data: UserProfileData) => {
+    apiFetch(`${backendURL}/api/user?username=${decodedUsername}&userId=${userId || ""}`, {
+      token: jwt,
+    })
+      .then(async (res) => {
+        const data = (await res.json()) as UserProfileData;
+
+        if (!res.ok) {
+          throw new Error(data?.error || `HTTP ${res.status}`);
+        }
+
+        return data;
+      })
+      .then((data) => {
         if (!isMounted.current) return;
-        if (data.error) {
-          setError(data.error);
-        } else {
-          if (data.avatar && !data.avatar.startsWith("http")) {
-            data.avatar = `${backendURL}${data.avatar}`;
-          }
-          setUser(data);
 
-          if (session?.user?.username === data.username) {
-            setIsOwner(true);
-          }
+        if (data.avatar && !data.avatar.startsWith("http")) {
+          data.avatar = `${backendURL}${data.avatar}`;
+        }
+        setUser(data);
+
+        if (session?.user?.username === data.username) {
+          setIsOwner(true);
         }
       })
-      .catch(() => {
-        if (isMounted.current) setError("Ошибка загрузки профиля");
+      .catch((e) => {
+        if (!isMounted.current) return;
+        setError(e?.message || "Ошибка загрузки профиля");
       });
 
     return () => {
       isMounted.current = false;
     };
-  }, [username, status, session, userId]);
+  }, [username, status, session?.user?.accessToken, userId, session?.user?.username]);
 
   if (status === "loading") return <p>Загрузка сессии...</p>;
   if (error) return <p className="text-red-500">{error}</p>;
